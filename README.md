@@ -1,15 +1,15 @@
-# node-energenie-ener314rt
+# energenie-ener314rt
 A node.js module to control the Energenie line of products via the ENER314-RT add-on board for the Raspberry Pi.
 
 https://energenie4u.co.uk/
 
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/Achronite/node-energenie-ener314/graphs/commit-activity)
-[![Downloads](https://img.shields.io/npm/dm/node-energenie-ener314rt.svg)](https://www.npmjs.com/package/node-energenie-ener314rt)
-[![HitCount](http://hits.dwyl.io/achronite/node-energenie-ener314rt.svg)](http://hits.dwyl.io/achronite/node-energenie-ener314rt)
-[![Dependencies Status](https://img.shields.io/david/Achronite/node-energenie-ener314rt.svg)](https://david-dm.org/Achronite/node-energenie-ener314rt)
-[![Release](https://img.shields.io/github/release-pre/achronite/node-energenie-ener314rt.svg)](https://github.com/Achronite/node-energenie-ener314rt/releases)
-[![NPM](https://nodei.co/npm/node-energenie-ener314rt.png)](https://nodei.co/npm/node-energenie-ener314rt/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/Achronite/energenie-ener314/graphs/commit-activity)
+[![Downloads](https://img.shields.io/npm/dm/energenie-ener314rt.svg)](https://www.npmjs.com/package/energenie-ener314rt)
+[![HitCount](http://hits.dwyl.io/achronite/energenie-ener314rt.svg)](http://hits.dwyl.io/achronite/energenie-ener314rt)
+[![Dependencies Status](https://img.shields.io/david/Achronite/energenie-ener314rt.svg)](https://david-dm.org/Achronite/energenie-ener314rt)
+[![Release](https://img.shields.io/github/release-pre/achronite/energenie-ener314rt.svg)](https://github.com/Achronite/energenie-ener314rt/releases)
+[![NPM](https://nodei.co/npm/energenie-ener314rt.png)](https://nodei.co/npm/energenie-ener314rt/)
 
 
 ## Purpose
@@ -47,7 +47,7 @@ These functions are exposed by this module:
 
 1) Plug in your ENER314-RT-VER01 board from Energenie onto the 26 pin or 40 pin connector of your Raspberry Pi.
 
-2) Include this module in your node.js code using ```require('node-energenie-ener314rt');```
+2) Include this module in your node.js code using ```require('energenie-ener314rt');```
 
 TODO - Full instructions and example node.js code
 
@@ -211,7 +211,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 
 ## Authors
 
-* **Achronite** - *Node wrappers, javascript and additional C code for switching, monitoring and locking* - [Achronite](https://github.com/Achronite/node-energenie-ener314)
+* **Achronite** - *Node wrappers, javascript and additional C code for switching, monitoring and locking* - [Achronite](https://github.com/Achronite/energenie-ener314)
 * **David Whale** - *Radio C library and python implementation* - [whaleygeek](https://github.com/whaleygeek/pyenergenie)
 * **Energenie** - *Original C code base* - [Energenie](https://github.com/Energenie)
 
@@ -221,9 +221,9 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Bugs and Future Work
 
-Future work is detailed on the [github issues page](https://github.com/Achronite/node-energenie-ener314rt/issues). Please raise any bugs, questions, queries or enhancements you have using this page.
+Future work is detailed on the [github issues page](https://github.com/Achronite/energenie-ener314rt/issues). Please raise any bugs, questions, queries or enhancements you have using this page.
 
-https://github.com/Achronite/node-energenie-ener314rt/issues
+https://github.com/Achronite/energenie-ener314rt/issues
 
 
 

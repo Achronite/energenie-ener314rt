@@ -1,0 +1,27 @@
+{
+  "name": "energenie-ener314rt",
+  "version": "0.3.0",
+  "description": "A node.js module to control the Energenie line of products via the ENER314-RT add-on board for the Raspberry Pi using N-API.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Achronite/energenie-ener314rt.git"
+  },
+  "keywords": [
+    "energenie",
+    "ener314-rt",
+    "node",
+    "radio"
+  ],
+  "author": "Achronite",
+  "license": "MIT",
+  "gypfile": true,
+  "bugs": {
+    "url": "https://github.com/Achronite/energenie-ener314rt/issues"
+  },
+  "homepage": "https://github.com/Achronite/energenie-ener314rt#readme"
+}

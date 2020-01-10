@@ -17,7 +17,7 @@ https://energenie4u.co.uk/
 You can use this node.js module to control and monitor the Energenie MiHome radio based smart devices such as adapters, sockets, lights, thermostats and relays 
 on a Raspberry Pi with an **ENER314-RT** board installed (see below for full device list).  This is *instead* of operating the devices using a MiHome Gateway, so this module does not require an internet connection.
 
-This node module also has an accompanying node-red implementation by the same author **node-red-contrib-energenie-ener314rt**.
+This node module also has an accompanying node-red implementation by the same author **node-red-contrib-energenie-ener314rt**, this is much easier to use than this node module directly!
 
 The number of individual devices this module can control is over 4 million, so it should be suitable for most installations!
 
@@ -93,20 +93,21 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 
 ## Processing Monitor Messages
 
-The **'Monitor'**, **'Control & Monitor'** & **'eTRV'**  nodes receive monitoring information from the devices and emit the received parameter values on their output.  These messages conform to the OpenThings parameter standard.
-All OpenThings parameters received from the device are decoded and returned using the callback.
+The received messages are passed back to node.js using the callback registered during the ``openThingsReceiveThread``.  These messages conform to the OpenThings parameter standard.
+All OpenThings parameters received from the device are decoded and returned using the callback in a json format.
 
-For example the 'Adapter Plus' returns the following parameters in the ```msg.payload```:
+For example the 'Adapter Plus' returns the following parameters:
 ```
-timestamp: <numeric 'epoch based' timestamp, of when message was read>
-REAL_POWER: <power in Watts being consumed>
-REACTIVE_POWER: <Power in volt-ampere reactive (VAR)>
-VOLTAGE: <Power in Volts>            
-FREQUENCY: <Radio Frequency in Hz>
-SWITCH_STATE: <Device State, 0 = off, 1 = on
+{
+    "timestamp": <numeric 'epoch based' timestamp, of when message was read>
+    "REAL_POWER": <power in Watts being consumed>
+    "REACTIVE_POWER": <Power in volt-ampere reactive (VAR)>
+    "VOLTAGE": <Power in Volts>            
+    "FREQUENCY": <Radio Frequency in Hz>
+    "SWITCH_STATE": <Device State, 0 = off, 1 = on
+}
 ```
 Other devices will return other parameters which you can use. I have provided parameter name and type mapping for the known values for received messages.
-Connect up a debug node to see what your specific devices output.
 
 A full parameter list can be found in C/src/achronite/openThings.c if required.
 
@@ -117,6 +118,8 @@ v0.3+ now supports the MiHome Thermostatic Radiator valve (eTRV).
 
 ### eTRV Commands
 The MiHome Thermostatic Radiator valve (eTRV) can accept commands to perform operations, provide diagnostics or perform self tests.  The documented commands are provided in the table below.
+
+Single commands should be sent using the ``openThingsCacheCmd`` function, using the command as the # numeric values. If there is no .data value, set it to 0.
 
 | Command | # | Description | .data | Response Msg |
 |---|:---:|---|---|:---:|
@@ -131,26 +134,10 @@ The MiHome Thermostatic Radiator valve (eTRV) can accept commands to perform ope
 
 > \* Although this will not auto-report, a subsequent call to *REQUEST_DIAGNOTICS* will confirm the *LOW_POWER_MODE* setting
 
-#### Sending eTRV Commands
-Single commands should be sent as a numeric value within a JSON request, for example to Request Diagnostics you can use a template node (Output as Parsed JSON) to send the following ```msg.payload```:
-```
-{
-    "command": 226,
-    "data": 0
-}
-```
-Example for setting temperature to 20C using command mode:
-```
-{
-    "command": 244,
-    "data": 20
-}
-```
-
 ### eTRV Command Caching
 The eTRV reports its temperature at the *SET_REPORTING_INTERVAL* (default 5 minutes). The receiver is activated after each *TEMPERATURE* report to listen for commands. The receiver only remains active for 200ms or until a message is received.
 
-To cater for this hardware limitation the **'eTRV node'** uses command caching and dynamic polling. Any command sent using the eTRV node will be held until a TEMPERATURE report is received; at this point the most recent cached message (only 1 is supported) will be sent to the eTRV.  Messages will continue to be resent until they have been succesfully received or until the number of Retries has reached 0.
+To cater for this hardware limitation the ``openThingsReceiveThread`` and ``openThingsCacheCmd`` functions should be used.  Any command sent using the **CacheCmd** function will be held until a TEMPERATURE report is received by the receive thread; at this point the most recent cached message (only 1 is supported) will be sent to the eTRV.  Messages will continue to be resent until they have been succesfully received or until the number of Retries has reached 0.
 
 The reason that a command may be resent multiple times is due to reporting issues. The eTRV devices, unfortunately, do not send acknowledgement for every command type (indicated by a 'No' in the *Response* column in the above table).  This includes the *TEMP_SET* command!  So these commands are always resent for the full number of retries.
 
@@ -200,9 +187,10 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 run 'node-gyp rebuild' in this directory to rebuild the node module.
 
 ## Change History
-| Version | Change details
-|---|---|
-0.3.0|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
+| Version | Date | Change details
+|---|---|---|
+0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
+0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
 
 
 ## Built With
@@ -228,4 +216,4 @@ https://github.com/Achronite/energenie-ener314rt/issues
 
 
 
-@Achronite - January 2020 - v0.3.0 Beta
+@Achronite - January 2020 - v0.3.2 Beta

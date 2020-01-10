@@ -1,8 +1,8 @@
-// This is the parent node program for testing forked processes with 2-way comms so as not to block event loop
+// This is the parent node program for testing forked processes with 2-way comms so as to leave mmain node.js event loop COMPLETELY free
 //
 // To execute just use 'node parent.js'
 //
-// @Achronite - December 2019
+// @Achronite - January 2020
 //
 const { fork } = require('child_process');
 

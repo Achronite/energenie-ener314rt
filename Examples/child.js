@@ -17,7 +17,7 @@ this.events = new events.EventEmitter();
 var ener314rt = require(path.join(__dirname, '../build/Release/node_energenie_ener314rt'));
 
 // Use this if using publish npm module
-// var ener314rt = require('node_energenie_ener314rt'));
+// var ener314rt = require('energenie-ener314rt'));
 
 // main processing section that does stuff when asked by parent
 process.on('message', msg => {

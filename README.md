@@ -117,6 +117,7 @@ v0.3+ now supports the MiHome Thermostatic Radiator valve (eTRV).
 
 ### eTRV Commands
 The MiHome Thermostatic Radiator valve (eTRV) can accept commands to perform operations, provide diagnostics or perform self tests.  The documented commands are provided in the table below.
+
 | Command | # | Description | .data | Response Msg |
 |---|:---:|---|---|:---:|
 |EXERCISE_VALVE|163|Send exercise valve command, recommended once a week to calibrate eTRV||DIAGNOSTICS|

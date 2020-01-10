@@ -14,7 +14,10 @@
 ** C module addition to energenie code to perform the receiving and locking for the Energenie ENER314-RT board
 ** It also provides the common functions for mutex locking, and radio initialisation
 **
-** Author: Phil Grainger - @Achronite, March 2019
+** Author: Phil Grainger - @Achronite, March 2019 - Dec 2010
+**
+** 10 Jan 2020 v0.3.1 Call init function if not already done so when attempting to lock radio
+**
 */
 
 /* declare radio lock for multi-threading */
@@ -121,7 +124,9 @@ int lock_ener314rt(void)
     }
     else
     {
-        TRACE_OUTS("lock_ener314(): Radio not initialised, call init_ener314rt() first\n");
+        // radio not initialised, do it now
+        TRACE_OUTS("lock_ener314(): Radio not initialised, calling init_ener314rt()\n");
+        ret = init_ener314rt(true);        
     }
 
     return ret;

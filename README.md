@@ -8,6 +8,7 @@ https://energenie4u.co.uk/
 [![Downloads](https://img.shields.io/npm/dm/energenie-ener314rt.svg)](https://www.npmjs.com/package/energenie-ener314rt)
 [![HitCount](http://hits.dwyl.io/achronite/energenie-ener314rt.svg)](http://hits.dwyl.io/achronite/energenie-ener314rt)
 [![Dependencies Status](https://img.shields.io/david/Achronite/energenie-ener314rt.svg)](https://david-dm.org/Achronite/energenie-ener314rt)
+![node](https://img.shields.io/node/v/energenie-ener314rt)
 [![Release](https://img.shields.io/github/release-pre/achronite/energenie-ener314rt.svg)](https://github.com/Achronite/energenie-ener314rt/releases)
 [![NPM](https://nodei.co/npm/energenie-ener314rt.png)](https://nodei.co/npm/energenie-ener314rt/)
 

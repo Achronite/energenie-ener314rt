@@ -1142,7 +1142,7 @@ void openthings_scan(int iTimeOut)
                 // scan records for JOIN requests, and reply to add
                 for (j = 0; j < records; j++)
                 {
-                    if (OTrecs[i].paramId == OTP_JOIN)
+                    if (OTrecs[j].paramId == OTP_JOIN)
                     {
                         TRACE_OUTS("openThings_scan(): New device found, sending ACK: deviceId:");
                         TRACE_OUTN(iDeviceId);

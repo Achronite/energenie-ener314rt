@@ -41,17 +41,7 @@
 void xcb_openThings_receive(napi_env env, void *data);
 void ccb_openThings_receive(napi_env env, napi_status status, void *data);
 
-// async carrier for data passing
-typedef struct carrier
-{
-    int32_t _input;
-    char _buf[500];
-    int _result;
-    napi_value _callback;
-    napi_async_work _request;
-    napi_async_work _tsfn;
-} carrier;
-
+// monitor thread structure
 typedef struct
 {
     napi_async_work work;
@@ -62,7 +52,7 @@ typedef struct
 
 // ----------FILE--------- lock_radio.c
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper initEner314rt for:
 ** int init_ener314rt(int lock)
 */
 napi_value nf_init_ener314rt(napi_env env, napi_callback_info info)
@@ -108,12 +98,8 @@ napi_value nf_init_ener314rt(napi_env env, napi_callback_info info)
         }
     }
 
-    //printf("calling init_ener314rt(%s) argc=%d,type=%d,lock=%d\n", lock ? "true" : "false", argc, type_of_argument, lock);
-
     // Call C routine
     ret = init_ener314rt(lock);
-
-    //printf("init_ener314rt() returned %d\n", ret);
 
     // convert return value into JS value
     status = napi_create_int32(env, ret, &nv_ret);
@@ -126,7 +112,7 @@ napi_value nf_init_ener314rt(napi_env env, napi_callback_info info)
     return nv_ret;
 }
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper closeEner314rt for:
 ** extern void close_ener314rt(void);
 */
 napi_value nf_close_ener314rt(napi_env env, napi_callback_info info)
@@ -139,7 +125,7 @@ napi_value nf_close_ener314rt(napi_env env, napi_callback_info info)
     return 0;
 }
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper sendRadioMsg for:
 **  int send_radio_msg(RADIO_MODULATION mod, uint8_t *payload, uint8_t len, uint8_t times)
 */
 napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
@@ -230,13 +216,8 @@ napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
 }
 
 // ----------FILE--------- openThings.c
-/*
- unsigned char openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits);
- unsigned char openThings_deviceList(char *devices, bool scan);
- char openThings_receive(char *OTmsg );
-*/
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper openThingsSwitch for:
 **  unsigned char openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits);
 **
 ** Args
@@ -345,7 +326,7 @@ napi_value nf_openThings_switch(napi_env env, napi_callback_info info)
     return nv_ret;
 }
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper 'openThingsDeviceList' for:
 **  unsigned char openThings_deviceList(char *devices, bool scan);
 ** NOTE: devices is a returned buffer, but we will 'return' it instead
 **
@@ -407,7 +388,7 @@ napi_value nf_openThings_deviceList(napi_env env, napi_callback_info info)
     return nv_ret;
 }
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper 'openThingsReceive' for:
 **  char openThings_receive(char *OTmsg );
 ** NOTE: OTmsg is output param from C call, but we will 'return' it to node
 */
@@ -468,7 +449,7 @@ napi_value nf_openThings_receive(napi_env env, napi_callback_info info)
     return nv_ret;
 }
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper 'openThingsCacheCmd' for:
 **  unsigned char openThings_cache_cmd(unsigned int iDeviceId, uint8_t command, uint32_t data)
 **
 ** Input params from JS:
@@ -679,7 +660,7 @@ static void tc_openThings_receive_thread(napi_env env, napi_status status, void 
     TRACE_OUTS("tc_ done\n");
 }
 
-/* N-API function (tf_) wrapper for:
+/* N-API function (tf_) wrapper openThingsReceiveThread for:
 **  static napi_value tf_openThings_receive_thread(napi_env env, napi_callback_info info)
 **
 ** Use this function if you have any 'monitor' devices.
@@ -799,7 +780,7 @@ static void addon_getting_unloaded(napi_env env, void *data, void *hint)
     free(addon_data);
 }
 
-/* N-API function (nf_) for:
+/* N-API function (nf_) stopMonitoring for:
 **  stop_monitoring()
 **
 ** Calling this function notifies the monitor thread to close
@@ -828,7 +809,7 @@ static napi_value nf_stop_openThings_receive_thread(napi_env env, napi_callback_
 
 // ----------FILE--------- ook_send.c
 
-/* N-API function (nf_) wrapper for:
+/* N-API function (nf_) wrapper ookSwitch for:
 **  unsigned char ook_switch(unsigned int iZone, unsigned int iSwitchNum, unsigned char bSwitchState, unsigned char xmits)
 **
 ** Args:

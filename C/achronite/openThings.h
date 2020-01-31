@@ -191,6 +191,7 @@ struct TRV_DEVICE {
     bool          errors;
     bool          lowPowerMode;
     bool          exerciseValve;
+    bool          active;
     enum valveState valve;
     time_t        diagnosticDate;
     time_t        voltageDate;

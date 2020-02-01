@@ -193,6 +193,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 |---|---|---|
 0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
 0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
+0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
 
 
 ## Built With
@@ -218,4 +219,4 @@ https://github.com/Achronite/energenie-ener314rt/issues
 
 
 
-@Achronite - January 2020 - v0.3.3 Beta
+@Achronite - February 2020 - v0.3.3 Beta

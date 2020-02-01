@@ -238,8 +238,7 @@ void radio_reset(void)
 
 /*---------------------------------------------------------------------------*/
 
-// @achronite - Jan 2020 - made init return radio version if error so that it can be reported by caller
-//              Feb 2020 - return -ve when radio version is incorrect
+// @achronite - Feb 2020 - return -ve when radio version is incorrect
 int radio_init(void)
 {
     TRACE_OUTS("radio_init\n");
@@ -275,7 +274,7 @@ int radio_init(void)
     }
 
     radio_standby();
-    return rv;
+    return 0;
 }
 
 /*---------------------------------------------------------------------------*/

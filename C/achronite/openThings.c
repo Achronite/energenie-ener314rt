@@ -496,9 +496,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
 **    formatting and encoding the OpenThings FSK radio request
 **    sending the radio request via the ENER314-RT RaspberryPi adaptor
 */
-unsigned char openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits)
+int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits)
 {
-    int ret = 0;
+    char ret = 0;
     unsigned short crc, pip;
     unsigned char radio_msg[OTS_MSGLEN] = {OTS_MSGLEN - 1, ENERGENIE_MFRID, PRODUCTID_MIHO005, OT_DEFAULT_PIP, OT_DEFAULT_DEVICEID, OTC_SWITCH_OFF, 0x00, 0x00};
 
@@ -783,7 +783,7 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 ** Build the full message here, as Rx window is quite small for eTRV
 **
 */
-char openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data)
+int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data)
 {
     int ret = 0, index;
     unsigned char radio_msg[MAX_R1_MSGLEN] = {0};
@@ -1081,7 +1081,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 **  - learn a new device
 **  - or by a manual poll if empty**
 */
-unsigned char openThings_deviceList(char *devices, bool scan)
+int openThings_deviceList(char *devices, bool scan)
 {
     int i;
     char deviceStr[100];
@@ -1211,7 +1211,7 @@ void openthings_scan(int iTimeOut)
 ** NOTE: There is an extremely small chance we could lose an incoming message here, but as we are adding new devices it's not worth bothering
 **
 */
-unsigned char openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits)
+int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits)
 {
     int ret = 0;
     unsigned short crc;

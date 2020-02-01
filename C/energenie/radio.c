@@ -1,5 +1,6 @@
 /* radio.c  12/04/2016  D.J.Whale
  *          13/04/2019  Achronite - Additional functions and fixes
+ *          01/02/2020  Achronite - Made init return -ve on failure
  *
  * An interface to the Energenie Raspberry Pi Radio board ENER314-RT-VER01
  *
@@ -238,6 +239,7 @@ void radio_reset(void)
 /*---------------------------------------------------------------------------*/
 
 // @achronite - Jan 2020 - made init return radio version if error so that it can be reported by caller
+//              Feb 2020 - return -ve when radio version is incorrect
 int radio_init(void)
 {
     TRACE_OUTS("radio_init\n");
@@ -264,16 +266,16 @@ int radio_init(void)
     {
         TRACE_OUTS("warning:unexpected radio ver<min\n");
         //TRACE_FAIL("unexpected radio ver<min\n");
-        return rv;
+        return -1;
     }
     else if (rv > EXPECTED_RADIOVER)
     {
         TRACE_OUTS("warning:unexpected radio ver>exp\n");
-        return rv;
+        return -2;
     }
 
     radio_standby();
-    return 0;
+    return rv;
 }
 
 /*---------------------------------------------------------------------------*/

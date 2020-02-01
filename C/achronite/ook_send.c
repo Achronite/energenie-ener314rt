@@ -61,14 +61,14 @@ void encode_decimal(unsigned int iDecimal, unsigned char bits, unsigned char *en
 **    formatting and encoding an OOK radio request
 **    sending the radio request via the ENER314-RT RaspberryPi adaptor
 */
-unsigned char ook_switch(unsigned int iZone, unsigned int iSwitchNum, unsigned char bSwitchState, unsigned char xmits)
+int ook_switch(unsigned int iZone, unsigned int iSwitchNum, unsigned char bSwitchState, unsigned char xmits)
 {
     int ret = 0;
     unsigned char radio_msg[OOK_MSGLEN] = {PREAMBLE, DEFAULT_HC, 0x00, 0x00};
 
 
 #if defined(TRACE)
-    printf("ook_send: Zone=%d, Switch=%d, state=%d\n", iZone, iSwitchNum, bSwitchState);
+    printf("ook_switch: Zone=%d, Switch=%d, state=%d\n", iZone, iSwitchNum, bSwitchState);
 #endif
 
     // encode the zone / house code if not using the default

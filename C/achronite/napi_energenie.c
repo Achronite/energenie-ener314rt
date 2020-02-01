@@ -524,7 +524,6 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
         }
 
         // Call C routine
-
         ret = openThings_cache_cmd(iDeviceId, command, data);
     }
 

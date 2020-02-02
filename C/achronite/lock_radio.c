@@ -126,7 +126,7 @@ int lock_ener314rt(void)
     {
         // radio not initialised, do it now
         TRACE_OUTS("lock_ener314(): Radio not initialised, calling init_ener314rt()\n");
-        ret = init_ener314rt(true);        
+        ret = init_ener314rt(true);
     }
 
     return ret;
@@ -183,42 +183,41 @@ int empty_radio_Rx_buffer(enum deviceTypes rxMode)
 {
     int i, recs = 0;
 
-    // Put us into monitor as soon as we know about it
-    /*
+    // Put us into monitor mode as soon as we know about it
     if (rxMode == DT_MONITOR)
         deviceType = DT_MONITOR;
 
+    // only empty buffer if we need to
     if (deviceType == DT_MONITOR || rxMode == DT_LEARN)
     {
-*/
-    // only receive data if we are in monitor mode
-    // Set FSK mode receive for OpenThings devices (Energenie OOK devices dont generally transmit!)
-    radio_setmode(RADIO_MODULATION_FSK, HRF_MODE_RECEIVER);
+        // only receive data if we are in monitor mode
+        // Set FSK mode receive for OpenThings devices (Energenie OOK devices dont generally transmit!)
+        radio_setmode(RADIO_MODULATION_FSK, HRF_MODE_RECEIVER);
 
-    i = 0;
-    // do we have any messages waiting?
-    while (radio_is_receive_waiting() && (i++ < RX_MSGS))
-    {
-        if (radio_get_payload_cbp(RxMsgs[pRxMsgHead].msg, MAX_FIFO_BUFFER) == RADIO_RESULT_OK)
+        i = 0;
+        // do we have any messages waiting?
+        while (radio_is_receive_waiting() && (i++ < RX_MSGS))
         {
-            recs++;
-            // TODO: Only store valid OpenThings messages?
+            if (radio_get_payload_cbp(RxMsgs[pRxMsgHead].msg, MAX_FIFO_BUFFER) == RADIO_RESULT_OK)
+            {
+                recs++;
+                // TODO: Only store valid OpenThings messages?
 
-            // record message timestamp
-            RxMsgs[pRxMsgHead].t = time(0);
-            TRACE_OUTC(64);
+                // record message timestamp
+                RxMsgs[pRxMsgHead].t = time(0);
+                TRACE_OUTC(64);
 
-            // wrap round buffer for next Rx
-            if (++pRxMsgHead == RX_MSGS)
-                pRxMsgHead = 0;
-        }
-        else
-        {
-            TRACE_OUTS("empty_radio_Rx_buffer(): error getting payload\n");
-            break;
+                // wrap round buffer for next Rx
+                if (++pRxMsgHead == RX_MSGS)
+                    pRxMsgHead = 0;
+            }
+            else
+            {
+                TRACE_OUTS("empty_radio_Rx_buffer(): error getting payload\n");
+                break;
+            }
         }
     }
-    //    }
     return recs;
 };
 

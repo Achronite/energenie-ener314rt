@@ -7,7 +7,6 @@ https://energenie4u.co.uk/
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/Achronite/energenie-ener314/graphs/commit-activity)
 [![Downloads](https://img.shields.io/npm/dm/energenie-ener314rt.svg)](https://www.npmjs.com/package/energenie-ener314rt)
 [![HitCount](http://hits.dwyl.io/achronite/energenie-ener314rt.svg)](http://hits.dwyl.io/achronite/energenie-ener314rt)
-[![Dependencies Status](https://img.shields.io/david/Achronite/energenie-ener314rt.svg)](https://david-dm.org/Achronite/energenie-ener314rt)
 ![node](https://img.shields.io/node/v/energenie-ener314rt)
 [![Release](https://img.shields.io/github/release-pre/achronite/energenie-ener314rt.svg)](https://github.com/Achronite/energenie-ener314rt/releases)
 [![NPM](https://nodei.co/npm/energenie-ener314rt.png)](https://nodei.co/npm/energenie-ener314rt/)
@@ -50,7 +49,9 @@ These functions are exposed by this module:
 
 2) Include this module in your node.js code using ```require('energenie-ener314rt');```
 
-TODO - Full instructions and example node.js code
+3) Use the code in the 'Examples' folder to build your node.js solution.  There are 2 examples:
+    * ``app.js``: Basic node.js program that uses a number of core functions, including switching Control only sockets and using the Monitor Thread to output messages from all OpenThings 'Monitor' devices.
+    * ``parent.js``: An experimental node that forks a separate node instance to run the ``child.js`` code, and uses stdin/stdout messages between the ``parent`` and ``child`` programs.
 
 
 ## Supported Devices
@@ -63,7 +64,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |---|---|:---:|:---:|:---:|:---:|
 ||**Node Protocol / Type**|*OOK*|*FSK*|*FSK*
 |ENER002|Green Button Adapter|x|||x
-|ENER010|MiHome 4 gang Multiplug|x
+|ENER010|MiHome 4 gang Multiplug|x|||x
 |MIHO002|MiHome Adapter (Blue)|x
 |MIHO004|MiHome Energy Monitor (Pink)||x
 |MIHO005|MiHome Adapter Plus (Purple)| | x | x|x
@@ -192,6 +193,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 |---|---|---|
 0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
 0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
+0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
 
 
 ## Built With
@@ -201,7 +203,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 
 ## Authors
 
-* **Achronite** - *Node wrappers, javascript and additional C code for switching, monitoring and locking* - [Achronite](https://github.com/Achronite/energenie-ener314)
+* **Achronite** - *Node wrappers, javascript and additional C code for switching, monitoring and locking* - [Achronite](https://github.com/Achronite/energenie-ener314rt)
 * **David Whale** - *Radio C library and python implementation* - [whaleygeek](https://github.com/whaleygeek/pyenergenie)
 * **Energenie** - *Original C code base* - [Energenie](https://github.com/Energenie)
 
@@ -217,4 +219,4 @@ https://github.com/Achronite/energenie-ener314rt/issues
 
 
 
-@Achronite - January 2020 - v0.3.2 Beta
+@Achronite - February 2020 - v0.3.3 Beta

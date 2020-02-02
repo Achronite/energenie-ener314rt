@@ -26,7 +26,7 @@
 
 /***** FUNCTION PROTOTYPES *****/
 void encode_decimal(unsigned int iDecimal, unsigned char bits, unsigned char * encArray );
-unsigned char ook_switch(unsigned int iZone, unsigned int iSwitchNum, unsigned char bSwitchState, unsigned char xmits);
+int ook_switch(unsigned int iZone, unsigned int iSwitchNum, unsigned char bSwitchState, unsigned char xmits);
 
 
 #endif

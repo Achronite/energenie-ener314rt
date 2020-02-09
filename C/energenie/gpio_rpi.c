@@ -1,6 +1,7 @@
 /* gpio.c  D.J.Whale  8/07/2014
  *
  * gpiomem fix Achronite, Jan 2019
+ * removed exit(s) to replace with return values, Feb 2020
  * 
  * A very simple interface to the GPIO port on the Raspberry Pi.
  */
@@ -53,7 +54,7 @@ const uint8_t gpio_sim=0; /* 0=> not simulated */
 #define GPIO_LOW(g)  GPIO_CLR = (1<<(g))
 
 
-void gpio_init()
+int gpio_init()
 {
    uint32_t peri_base = BCM2708_PERI_BASE; /* default if device tree not found */
    uint32_t gpio_base;
@@ -82,7 +83,7 @@ void gpio_init()
       if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) 
       {
          printf("can't open /dev/gpiomem or /dev/mem\n");
-         exit(-1); //TODO return a result code
+         return ERR_GPIO_DEVICE;
       }
    }
 
@@ -100,12 +101,13 @@ void gpio_init()
 
    if (gpio_map == MAP_FAILED) 
    {
-      printf("mmap error %d\n", (int)gpio_map);//errno also set!
-      exit(-1); //TODO return a result code
+      printf("mmap error %d\n", (int)gpio_map); //errno also set!
+      return ERR_MMAP;
    }
 
    // Always use volatile pointer!
    gpio = (volatile unsigned *)gpio_map;
+   return 0;
 }
 
 

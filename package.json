@@ -1,6 +1,6 @@
 {
   "name": "energenie-ener314rt",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A node.js module to control the Energenie line of products via the ENER314-RT add-on board for the Raspberry Pi using N-API.",
   "main": "index.js",
   "engines": {

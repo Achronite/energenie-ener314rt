@@ -1,4 +1,6 @@
-/* spi.h  D.J.Whale  19/07/2014 */
+/* spi.h  D.J.Whale  19/07/2014
+ * @Achronite - added return values to remove exit(s), Feb 2020
+ */
 
 
 #ifndef SPI_H
@@ -45,9 +47,9 @@ typedef struct
 
 /***** FUNCTION PROTOTYPES *****/
 
-void spi_init_defaults(void);
+int spi_init_defaults(void);
 
-void spi_init(SPI_CONFIG* pConfig);
+int spi_init(SPI_CONFIG* pConfig);
 
 void spi_select(void);
 

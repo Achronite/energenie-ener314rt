@@ -1455,17 +1455,17 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
             if (OTrec.retInt & 0x0800)
             { // Driver micro has suffered a watchdog reset and needs data refresh
                 trvData->errors = true;
-                strncat(trvData->errString, "Driver micro has suffered a watchdog reset and needs data refresh.", MAX_ERRSTR);
+                strncat(trvData->errString, "Driver micro watchdog reset, data refresh needed", MAX_ERRSTR);
             }
             if (OTrec.retInt & 0x1000)
             { // Driver micro has suffered a noise reset and needs data refresh
                 trvData->errors = true;
-                strncat(trvData->errString, "Driver micro has suffered a noise reset and needs data refresh.", MAX_ERRSTR);
+                strncat(trvData->errString, "Driver micro noise reset, data refresh needed", MAX_ERRSTR);
             }
             if (OTrec.retInt & 0x2000)
             { // Battery voltage has fallen below 2p2V and valve has been opened
                 trvData->errors = true;
-                strncat(trvData->errString, "Battery voltage has fallen below 2.2V and valve has been opened.", MAX_ERRSTR);
+                strncat(trvData->errString, "Battery voltage below 2.2V, valve opened", MAX_ERRSTR);
             }
             if (OTrec.retInt & 0x4000)
             { // Request for heat messaging is enabled - not sure what to do here, or even how to set this!

@@ -138,6 +138,7 @@ napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
     napi_valuetype type_of_argument;
     unsigned int len, xmits, mod;
     unsigned char *msg;
+    bool isBuffer;
 
     // get args
     status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -180,12 +181,32 @@ napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
         }
 
         // 2: uint8_t *payload and length
-        status = napi_get_buffer_info(env, argv[2], (void **)(&msg), &len);
-        if (status != napi_ok)
-            napi_throw_error(env, NULL, "Invalid Message");
+        if (napi_is_buffer(env, argv[2], &isBuffer) == napi_ok)
+        {
+            if (isBuffer)
+            {
+                status = napi_get_buffer_info(env, argv[2], (void **)(&msg), &len);
+                if (status == napi_ok)
+                {
+                    // Call C routine
+                    TRACE_OUTS("nf_send_radio_msg: len=");
+                    TRACE_OUTN(len);
+                    ret = send_radio_msg(mod, msg, len, xmits);
+                }
+                else
+                {
+                    napi_throw_error(env, NULL, "Invalid Message");
+                    ret = -11;
+                }
+            }
+            else
+            {
+                napi_throw_error(env, NULL, "Message not a buffer");
+                ret = -13;
+            }
 
-        // 2: uint8_t len
-        /*
+            // 2: uint8_t len
+            /*
         status = napi_typeof(env, argv[2], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {
@@ -199,9 +220,12 @@ napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
                 napi_throw_error(env, NULL, "Invalid length");
         }
         */
-
-        // Call C routine
-        ret = send_radio_msg(mod, msg, len, xmits);
+        }
+        else
+        {
+            napi_throw_error(env, NULL, "Message not a buffer");
+            ret = -12;
+        }
     }
 
     // convert return value into JS value

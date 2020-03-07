@@ -238,43 +238,46 @@ void radio_reset(void)
 
 /*---------------------------------------------------------------------------*/
 
-// @achronite - Feb 2020 - return -ve when radio version is incorrect
+// @achronite - Feb 2020 - return -ve when radio or gpio/spi broken
 int radio_init(void)
 {
     TRACE_OUTS("radio_init\n");
 
     //gpio_init(); done by spi_init at moment
-    spi_init(&radioConfig);
+    int ret = spi_init(&radioConfig);
 
-    gpio_setout(RESET);
-    gpio_low(RESET);
-    gpio_setout(LED_RED);
-    gpio_setout(LED_GREEN);
-
-    // flash both LEDs to show initialise working
-    gpio_high(LED_GREEN);
-    gpio_high(LED_RED);
-
-    radio_reset();
-
-    TRACE_OUTS("radio_ver=");
-    uint8_t rv = radio_get_ver();
-    TRACE_OUTN(rv);
-    TRACE_NL();
-    if (rv < EXPECTED_RADIOVER)
+    if (ret == 0)
     {
-        TRACE_OUTS("warning:unexpected radio ver<min\n");
-        //TRACE_FAIL("unexpected radio ver<min\n");
-        return -1;
-    }
-    else if (rv > EXPECTED_RADIOVER)
-    {
-        TRACE_OUTS("warning:unexpected radio ver>exp\n");
-        return -2;
-    }
+        gpio_setout(RESET);
+        gpio_low(RESET);
+        gpio_setout(LED_RED);
+        gpio_setout(LED_GREEN);
 
-    radio_standby();
-    return 0;
+        // flash both LEDs to show initialise working
+        gpio_high(LED_GREEN);
+        gpio_high(LED_RED);
+
+        radio_reset();
+
+        TRACE_OUTS("radio_ver=");
+        uint8_t rv = radio_get_ver();
+        TRACE_OUTN(rv);
+        TRACE_NL();
+        if (rv < EXPECTED_RADIOVER)
+        {
+            TRACE_OUTS("warning:unexpected radio ver<min\n");
+            //TRACE_FAIL("unexpected radio ver<min\n");
+            return ERR_RADIO_MIN;
+        }
+        else if (rv > EXPECTED_RADIOVER)
+        {
+            TRACE_OUTS("warning:unexpected radio ver>exp\n");
+            return ERR_RADIO_MAX;
+        }
+
+        radio_standby();
+    }
+    return ret;
 }
 
 /*---------------------------------------------------------------------------*/

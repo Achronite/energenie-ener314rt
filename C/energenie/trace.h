@@ -1,5 +1,7 @@
 /* trace.h  04/04/2016  D.J.Whale
  *
+ * @Achronite - removed exit from TRACE_FAIL, Feb 2020
+ *
  * Simple trace output.
  *
  * On some platforms this is just printf.
@@ -28,7 +30,7 @@
 #define TRACE_OUTN(N)   do{printf("%d", (unsigned int)N);fflush(stdout);} while (0)
 #define TRACE_OUTC(C)   putc(C, stdout)
 #define TRACE_NL()      do{TRACE_OUTC('\n');fflush(stdout);} while (0)
-#define TRACE_FAIL(msg) do{fprintf(stderr, "%s", msg);exit(-1);} while (0)
+#define TRACE_FAIL(msg) do{fprintf(stderr, "%s", msg);fflush(stderr);} while (0)
 
 #else // no trace defined
 

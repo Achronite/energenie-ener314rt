@@ -58,32 +58,31 @@ These functions are exposed by this module:
 
 These nodes are designed for energenie RF radio devices in the OOK & FSK (OpenThings) ranges.
 
-I've tested the nodes with all devices that I currently own.  Here is a table showing what each node *should* support, and a tag showing if it has been tested (please let me know of any succesful tests, and I'll update the table):
+I've tested the nodes with all devices that I currently own.  Here is a table showing the function(s) to use with each device:
 
-| Device | Description | Control Node (Blue)|Monitor Node (Pink)|Control+Monitor Node (Purple)|Tested OK|
+| Device | Description | Control Function | Monitor Function | Tested |
 |---|---|:---:|:---:|:---:|:---:|
-||**Node Protocol / Type**|*OOK*|*FSK*|*FSK*
-|ENER002|Green Button Adapter|x|||x
-|ENER010|MiHome 4 gang Multiplug|x|||x
-|MIHO002|MiHome Adapter (Blue)|x
-|MIHO004|MiHome Energy Monitor (Pink)||x
-|MIHO005|MiHome Adapter Plus (Purple)| | x | x|x
-|MIHO006|MiHome House Monitor|| x
-|MIHO007|MiHome Socket (White)|x|||x
-|MIHO008|MiHome Light Switch (White)| x
-|MIHO013|MiHome Radiator Valve| | x | use eTRV node |x
-|MIHO014|Single Pole Relay (inline)| x
-|MIHO015|MiHome Relay|x
-|MIHO021|MiHome Socket (Nickel)|x|||White
-|MIHO022|MiHome Socket (Chrome)|x|||White
-|MIHO023|MiHome Socket (Steel)|x|||White
-|MIHO024|MiHome Light Switch (Nickel)| x
-|MIHO025|MiHome Light Switch (Chrome)| x
-|MIHO026|MiHome Light Switch (Steel)| x
-|MIHO032|MiHome Motion sensor| | x
-|MIHO033|MiHome Open Sensor| | x
-|MIHO069|MiHome Heating Thermostat | | x | ?
-|MIHO089|MiHome Click - Smart Button||x
+|ENER002|Green Button Adapter|ookSwitch||x|
+|ENER010|MiHome 4 gang Multiplug|ookSwitch||x|
+|MIHO002|MiHome Adapter (Blue)|ookSwitch||x|
+|MIHO004|MiHome Energy Monitor (Pink)||openThingsReceiveThread||
+|MIHO005|MiHome Adapter Plus (Purple)|openThingsSwitch|openThingsReceiveThread|x|
+|MIHO006|MiHome House Monitor||openThingsReceiveThread||
+|MIHO007|MiHome Socket (White)|ookSwitch||x|
+|MIHO008|MiHome Light Switch (White)|ookSwitch|||
+|MIHO013|MiHome Radiator Valve|openThingsCacheCmd|openThingsReceiveThread|x|
+|MIHO014|Single Pole Relay (inline)|ookSwitch|||
+|MIHO015|MiHome Relay|ookSwitch|||
+|MIHO021|MiHome Socket (Nickel)|ookSwitch||x|
+|MIHO022|MiHome Socket (Chrome)|ookSwitch||x|
+|MIHO023|MiHome Socket (Steel)|ookSwitch||x|
+|MIHO024|MiHome Light Switch (Nickel)|ookSwitch|||
+|MIHO025|MiHome Light Switch (Chrome)|ookSwitch|||
+|MIHO026|MiHome Light Switch (Steel)|ookSwitch|||
+|MIHO032|MiHome Motion sensor||openThingsReceiveThread||
+|MIHO033|MiHome Open Sensor||openThingsReceiveThread||
+|MIHO069|MiHome Heating Thermostat |openThingsCacheCmd?|openThingsReceiveThread|| 
+|MIHO089|MiHome Click - Smart Button||openThingsReceiveThread||
 
 
 ## 'Control Only' OOK Zone Rules
@@ -136,7 +135,7 @@ Single commands should be sent using the ``openThingsCacheCmd`` function, using 
 
 > \* Although this will not auto-report, a subsequent call to *REQUEST_DIAGNOTICS* will confirm the *LOW_POWER_MODE* setting
 
-### eTRV Command Caching
+### Command Caching
 The eTRV reports its temperature at the *SET_REPORTING_INTERVAL* (default 5 minutes). The receiver is activated after each *TEMPERATURE* report to listen for commands. The receiver only remains active for 200ms or until a message is received.
 
 To cater for this hardware limitation the ``openThingsReceiveThread`` and ``openThingsCacheCmd`` functions should be used.  Any command sent using the **CacheCmd** function will be held until a TEMPERATURE report is received by the receive thread; at this point the most recent cached message (only 1 is supported) will be sent to the eTRV.  Messages will continue to be resent until they have been succesfully received or until the number of Retries has reached 0.
@@ -194,6 +193,8 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
 0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
 0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
+0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
+0.3.5|TBD|Reduced error strings on C&M node to avoid buffer overflow. Readme updates
 
 
 ## Built With
@@ -218,5 +219,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-
-@Achronite - February 2020 - v0.3.3 Beta
+@Achronite - February 2020 - v0.3.4 Beta

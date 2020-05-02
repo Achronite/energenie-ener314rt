@@ -61,7 +61,7 @@ These nodes are designed for energenie RF radio devices in the OOK & FSK (OpenTh
 I've tested the nodes with all devices that I currently own.  Here is a table showing the function(s) to use with each device:
 
 | Device | Description | Control Function | Monitor Function | Tested |
-|---|---|:---:|:---:|:---:|:---:|
+|---|---|:---:|:---:|:---:|
 |ENER002|Green Button Adapter|ookSwitch||x|
 |ENER010|MiHome 4 gang Multiplug|ookSwitch||x|
 |MIHO002|MiHome Adapter (Blue)|ookSwitch||x|

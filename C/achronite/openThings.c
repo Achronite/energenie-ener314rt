@@ -15,20 +15,23 @@
 ** C module addition to energenie code to simplify the FSK OpenThings interaction with the Energenie ENER314-RT
 ** by minimising the number of calls required to interact with C radio device.
 **
-** Author: Phil Grainger - @Achronite, March 2019
+** Author: Phil Grainger - @Achronite, March 2019 - October 2020
 */
 
 // OpenThings FSK paramters (known)  [{ParamName, paramId}]
 // I've moved the likely ones to the top for speed, and included in .c file to prevent compiler warnings
-static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
+static struct OT_PARAM OTparams[] = {
     {"UNKNOWN", 0x00},
+    {"MOTION_DETECTOR", 0x6D},
     {"FREQUENCY", 0x66},
     {"REAL_POWER", 0x70},
     {"REACTIVE_POWER", 0x71},
+    {"SWITCH_STATE", 0x73},
+    {"TEMPERATURE", 0x74},
     {"VOLTAGE", 0x76},
-    {"TEMPERATURE", OTP_TEMPERATURE},
     {"DIAGNOSTICS", 0x26},
     {"ALARM", 0x21},
+    {"ON_OFF_MODE", 0x2A},      // for Thermostat
     {"DEBUG_OUTPUT", 0x2D},
     {"IDENTIFY", 0x3F},
     {"SOURCE_SELECTOR", 0x40}, // write only
@@ -41,6 +44,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"GAS_VOLUME", 0x47},
     {"AIR_PRESSURE", 0x48},
     {"ILLUMINANCE", 0x49},
+    {"TARGET_TEMP", 0x4B},       // for Thermostat
     {"LEVEL", 0x4C},
     {"RAINFALL", 0x4D},
     {"APPARENT_POWER", 0x50},
@@ -51,6 +55,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"VIBRATION", 0x56},
     {"WATER_VOLUME", 0x57},
     {"WIND_SPEED", 0x58},
+    {"WAKEUP_MSG", 0x59},       // for Thermostat
     {"GAS_PRESSURE", 0x61},
     {"BATTERY_LEVEL", 0x62},
     {"CO_DETECTOR", 0x63},
@@ -60,11 +65,10 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"REL_HUMIDITY", 0x68},
     {"CURRENT", 0x69},
     {"JOIN", 0x6A},
+    {"RF_QUALITY", 0x6B},
     {"LIGHT_LEVEL", 0x6C},
-    {"MOTION_DETECTOR", 0x6D},
     {"OCCUPANCY", 0x6F},
     {"ROTATION_SPEED", 0x72},
-    {"SWITCH_STATE", 0x73},
     {"WATER_FLOW_RATE", 0x77},
     {"WATER_PRESSURE", 0x78},
     {"TEST", 0xAA}};
@@ -78,7 +82,7 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},
     {4, 0x0D, 0, "Open Sensor"},
-    {4, 0x0E, 1, "Thermostat"} // I dont know the productId of this yet, guessing at 0E
+    {4, 0x12, 1, "Thermostat"} // ProductId provided by red-kooga
 };
 
 // Globals - yuck
@@ -380,13 +384,15 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
                 openThings_cache_send(*iDeviceId);
             }
 
+            // lookup the parameter name in the known parameters table
             int paramIndex = openThings_getParamIndex(recs[record].paramId);
             if (paramIndex != 0)
             {
                 strcpy(recs[record].paramName, OTparams[paramIndex].paramName);
             }
             else
-            {
+            {  
+                // unknown parameter
                 sprintf(recs[record].paramName, "UNKNOWN_0x%2x", recs[record].paramId);
             }
 

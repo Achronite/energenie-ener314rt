@@ -1,4 +1,4 @@
-/* openThings.h  Achronite, March 2019
+/* openThings.h  Achronite, March 2019 - October 2020
  * 
  * Simplified interface for ENER314-RT devices using OpenThings protocol on Raspberry Pi
  */
@@ -18,6 +18,7 @@
 #define PRODUCTID_MIHO013 0x03   // eTRV
 #define PRODUCTID_MIHO032 0x0C   // FSK motion sensor
 #define PRODUCTID_MIHO033 0x0D   // FSK open sensor
+#define PRODUCTID_MIHO069 0x12   // Room Thermostat
 
 /* OpenThings Parameter Keys (for read)
 ** To WRITE/Command any of these add 128 (0x80) to set bit 7
@@ -179,10 +180,16 @@ enum valveState {OPEN = 0, CLOSED = 1, TEMPC = 2, ERROR = 3, UNKNOWN = 4};
 #define MAX_ERRSTR 50
 #define TRV_TX_RETRIES 10
 
+// Structure for storing cached commands for devices with Small Rx Window
+struct CACHED_CMD {
+    unsigned char retries;
+    unsigned char command;
+    unsigned char radio_msg[MAX_R1_MSGLEN];
+};
+
 // Structure for storing data for eTRV devices, these need to be treated as a special case for
-//  1) Small Rx Window
-//  2) Inability to retrieve all information from device
-//  3) Collating values to report at various points
+//  1) Inability to retrieve all information from device
+//  2) Collating values to report at various points
 struct TRV_DEVICE {
     float         targetC;
     float         currentC;
@@ -196,9 +203,6 @@ struct TRV_DEVICE {
     time_t        diagnosticDate;
     time_t        voltageDate;
     time_t        valveDate;
-    unsigned char retries;
-    unsigned char command;
-    unsigned char cachedCmd[MAX_R1_MSGLEN];
     char errString[MAX_ERRSTR];
 };
 
@@ -210,6 +214,7 @@ struct OT_DEVICE {
     unsigned char control;
     bool          joined;
     char          product[15];
+    struct CACHED_CMD *cache;                   // need to malloc if used
     struct TRV_DEVICE *trv;                     // need to malloc if used
 };
 
@@ -232,8 +237,9 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout);
 int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits);
 void openthings_scan(int iTimeOut);
 
+
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
-int openThings_cache_send(unsigned int iDeviceId);
+void openThings_cache_send(unsigned char index);
 //int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char xmits);
 int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime);

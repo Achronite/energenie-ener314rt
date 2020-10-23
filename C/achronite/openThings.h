@@ -232,11 +232,11 @@ struct OT_PRODUCT {
 
 /***** FUNCTION PROTOTYPES *****/
 int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits);
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits);
 int openThings_deviceList(char *devices, bool scan);
 int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout);
 int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits);
 void openthings_scan(int iTimeOut);
-
 
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
 void openThings_cache_send(unsigned char index);

@@ -231,7 +231,8 @@ int openThings_getDeviceIndex(unsigned int id)
 {
     for (int i = 0; i < g_NumDevices; i++)
     {
-        if (g_OTdevices[i].deviceId == id){
+        if (g_OTdevices[i].deviceId == id)
+        {
             return i;
         }
     }
@@ -798,6 +799,52 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 }
 
 /*
+** openThings_cmd()
+** ================
+** Send a command to be sent to a 'Control and Monitor' RF FSK OpenThings based Energenie smart device
+** This is designed for devices that are continously listening for commands
+*/
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits)
+{
+    int ret = 0;
+    unsigned char radio_msg[MAX_R1_MSGLEN] = {0};
+    unsigned char msglen;
+
+#if defined(TRACE)
+    printf("openThings_cmd(): deviceId=%d, cmd=%d, data=%d\n", iDeviceId, command, data);
+#endif
+
+    /*
+    ** We are just going to send any command, regardless of if the device is the deviceList or Not
+    */
+
+    // build full radio message
+    ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
+
+    if (ret == 0)
+    {
+        msglen = radio_msg[0] + 1; // use the length already calculated and stored
+        TRACE_OUTS("openThings_cmd(): sending...\n");
+
+        if ((ret = lock_ener314rt()) == 0)
+        {
+            radio_mod_transmit(RADIO_MODULATION_FSK, radio_msg, msglen, xmits);
+            unlock_ener314rt();
+
+#if defined(TRACE)
+            printf("openThings_cmd(): sent\n");
+#endif
+        }
+        else
+        {
+            TRACE_FAIL("openThings_cmd(): ERROR getting lock");
+        }
+    }
+
+    return ret;
+}
+
+/*
 ** openThings_cache_cmd()
 ** ===================
 ** Cache a command to be sent to a 'Control and Monitor' RF FSK OpenThings based Energenie smart device
@@ -894,7 +941,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                     g_OTdevices[index].trv->valve = data;
                 }
             }
-            
+
             TRACE_OUTN(g_PreCachedCmds);
             TRACE_OUTS(" payload(s) PRE-cached\n");
         }

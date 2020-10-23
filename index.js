@@ -7,6 +7,7 @@ module.exports.openThingsSwitch        = addon.openThingsSwitch;        // Switc
 module.exports.openThingsDeviceList    = addon.openThingsDeviceList;    // List discovered devices
 module.exports.openThingsReceive       = addon.openThingsReceive;       // Get single message
 module.exports.openThingsReceiveThread = addon.openThingsReceiveThread; // Start Receive Thread
+module.exports.openThingsCmd           = addon.openThingsCmd;           // Send a Command immediately to FSK device
 module.exports.openThingsCacheCmd      = addon.openThingsCacheCmd;      // Cache an eTRV Command
 module.exports.stopMonitoring          = addon.stopMonitoring;          // Stop Receive Thread
 module.exports.ookSwitch               = addon.ookSwitch;               // Switch an OOK device (zone, switchNum, switchState, xmits)

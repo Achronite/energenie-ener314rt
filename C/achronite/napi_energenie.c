@@ -21,7 +21,7 @@
 ** N-API replaces the older FFI / ref library calls used in v0.1 as these libraries are no longer being maintained.  N-API should allow
 ** this code to be Application Binary (ABI) compatiable across multiples platforms.
 **
-** Author: Phil Grainger - @Achronite, August 2019 - January 2020
+** Author: Phil Grainger - @Achronite, August 2019 - October 2020
 **
 ** Conventions Used:
 **  nv_   n-api value
@@ -472,6 +472,129 @@ napi_value nf_openThings_receive(napi_env env, napi_callback_info info)
 
     return nv_ret;
 }
+
+/* N-API function (nf_) wrapper openThings_cmd for:
+**  int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits)
+**
+** Args
+**   0: unsigned char iProductId
+**   1: unsigned int iDeviceId
+**   2: unsigned char iCommand
+**   3: unsigned char iData
+**   4: unsigned char xmits
+*/
+napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
+{
+    napi_status status;
+    size_t argc = 5; // 5 passed in args
+    napi_value argv[5];
+    napi_value nv_ret;
+    int ret;
+    napi_valuetype type_of_argument;
+
+    unsigned int iProductId, iDeviceId, iCommand, iData, xmits;
+
+    // get args
+    status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+    if (status != napi_ok)
+    {
+        // we cant recover from this error
+        napi_throw_error(env, NULL, "Failed to parse arguments");
+        ret = -10;
+    }
+    else
+    {
+        // Parse all the arguments
+        // 0: unsigned char iProductId
+        status = napi_typeof(env, argv[0], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "ProductId not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[0], &iProductId);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid ProductId");
+        }
+
+        // 1: unsigned int iDeviceId
+        status = napi_typeof(env, argv[1], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "DeviceId not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[1], &iDeviceId);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid DeviceId");
+        }
+
+        // 2: unsigned char command
+        status = napi_typeof(env, argv[2], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "Command not numeric");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[2], &iCommand);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid Command");
+        }
+
+        // 3: unsigned char iData
+        status = napi_typeof(env, argv[3], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "Data not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[3], &iData);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid data");
+        }
+
+        // 4: unsigned char xmits
+        status = napi_typeof(env, argv[4], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "xmits not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[4], &xmits);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid xmits");
+        }
+
+        printf("calling openThings_cmd(%d,%d,%d,%d,%d)\n", iProductId, iDeviceId, iCommand, iData, xmits);
+
+        // Call C routine
+        ret = openThings_cmd(iProductId, iDeviceId, iCommand, iData, xmits);
+
+        printf("openThings_cmd() returned %d\n", ret);
+    }
+
+    // convert return value into JS value
+    status = napi_create_int32(env, ret, &nv_ret);
+
+    if (status != napi_ok)
+    {
+        napi_throw_error(env, NULL, "Unable to create return value");
+    }
+
+    return nv_ret;
+}
+
 
 /* N-API function (nf_) wrapper 'openThingsCacheCmd' for:
 **  unsigned char openThings_cache_cmd(unsigned int iDeviceId, uint8_t command, uint32_t data)
@@ -991,6 +1114,13 @@ napi_value Init(napi_env env, napi_value exports)
          .data = NULL},
         {.utf8name = "openThingsReceive",
          .method = nf_openThings_receive,
+         .getter = NULL,
+         .setter = NULL,
+         .value = NULL,
+         .attributes = napi_default,
+         .data = NULL},
+        {.utf8name = "openThingsCmd",
+         .method = nf_openThings_cmd,
          .getter = NULL,
          .setter = NULL,
          .value = NULL,

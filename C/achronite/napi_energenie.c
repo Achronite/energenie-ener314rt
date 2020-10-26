@@ -473,7 +473,9 @@ napi_value nf_openThings_receive(napi_env env, napi_callback_info info)
     return nv_ret;
 }
 
-/* N-API function (nf_) wrapper openThings_cmd for:
+/*
+**  NEW: In v0.4.0
+**  N-API function (nf_) wrapper openThings_cmd for:
 **  int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits)
 **
 ** Args
@@ -482,6 +484,8 @@ napi_value nf_openThings_receive(napi_env env, napi_callback_info info)
 **   2: unsigned char iCommand
 **   3: unsigned char iData
 **   4: unsigned char xmits
+**
+** TODO: allow data pass different data types
 */
 napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
 {
@@ -535,6 +539,7 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
         }
 
         // 2: unsigned char command
+        // TODO: Allow for other data types
         status = napi_typeof(env, argv[2], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {

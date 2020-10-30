@@ -289,7 +289,10 @@ int send_radio_msg(unsigned char mod, unsigned char *payload, unsigned char len,
 {
     int ret = 0;
 
-    TRACE_OUTS("radio_mod_transmit(): called\n");
+    #if defined(FULLTRACE)
+        TRACE_OUTS("radio_mod_transmit(): called\n");
+    #endif
+    
     if (lock_ener314rt() == 0)
     {
         radio_mod_transmit(mod, payload, len, times);

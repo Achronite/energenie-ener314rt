@@ -1,4 +1,5 @@
 /* hrf69.c  03/04/2016  D.J.Whale
+ *          27/10/2020  Achronite - made some trace statements FULLTRACE
  *
  * Hope RF RFM69 radio controller low level register interface.
  */
@@ -18,13 +19,13 @@
 
 void HRF_writereg(uint8_t addr, uint8_t data)
 {
-    /*
-    TRACE_OUTS("writereg ");
-    TRACE_OUTN(addr);
-    TRACE_OUTC(' ');
-    TRACE_OUTN(data);
-    TRACE_NL();
-    */
+    #if defined(FULLTRACE)        
+        TRACE_OUTS("writereg ");
+        TRACE_OUTN(addr);
+        TRACE_OUTC(' ');
+        TRACE_OUTN(data);
+        TRACE_NL();
+    #endif
 
     spi_select();
     spi_byte(addr | HRF_MASK_WRITE_DATA);
@@ -166,7 +167,9 @@ void HRF_pollreg(uint8_t addr, uint8_t mask, uint8_t value)
     {
       // busy wait
       //TODO: No timeout or error recovery? Can cause permanent lockup
-      TRACE_OUTC('*');
+      #if defined(FULLTRACE)
+        TRACE_OUTC('*');
+      #endif
 
       // added the best sleep function for linux OS, transmit usually takes 40-60ms, sleep 20ms = 20,000,000ns
       nanosleep((const struct timespec[]){{0, 20000000L}}, NULL);

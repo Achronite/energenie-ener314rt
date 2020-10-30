@@ -781,7 +781,9 @@ static void tx_openThings_receive_thread(napi_env env, void *data)
         else
         {
             // we need to free instead
-            TRACE_OUTS("*");
+            #if defined(FULLTRACE)        
+                TRACE_OUTS("*");
+            #endif
             free(buf);
         }
     } while (addon_data->monitor);

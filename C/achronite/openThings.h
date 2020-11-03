@@ -31,6 +31,9 @@ struct OT_PARAM {
 
 
 /* OpenThings Command Parameters - 0x80 added */
+#define OTCP_ON_OFF_MODE     0xAA   /* 170: Set thermostat on/off mode ??
+                                       Length 1
+                                    */
 #define OTCP_EXERCISE_VALVE  0xA3   /* 163: Send exercise valve command to driver board. 
                                        Read diagnostic flags returned by driver board. 
                                        Send diagnostic flag acknowledgement to driver board. 
@@ -70,12 +73,9 @@ struct OT_PARAM {
 #define OTCP_TEMP_SET		 0xF4   /* 244: Send new target temperature to driver board */
 
 // OpenThings Rx parameters (full list in .c) - these are added here to replace magic numbers in code
-#define OTP_FREQUENCY       0x66
-#define OTP_REAL_POWER      0x70
-#define OTP_VOLTAGE         0x76
-#define OTP_TEMPERATURE     0x74
-#define OTP_DIAGNOSTICS     0x26
 #define OTP_ALARM           0x21
+#define OTP_ON_OFF_MODE     0x2A // Added for MIHO069
+#define OTP_DIAGNOSTICS     0x26
 #define OTP_DEBUG_OUTPUT    0x2D
 #define OTP_IDENTIFY        0x3F
 #define OTP_SOURCE_SELECTOR 0x40 // write only
@@ -103,6 +103,7 @@ struct OT_PARAM {
 #define OTP_CO_DETECTOR     0x63
 #define OTP_DOOR_SENSOR     0x64
 #define OTP_EMERGENCY       0x65
+#define OTP_FREQUENCY       0x66
 #define OTP_GAS_FLOW_RATE   0x67
 #define OTP_REL_HUMIDITY    0x68
 #define OTP_CURRENT         0x69
@@ -110,8 +111,11 @@ struct OT_PARAM {
 #define OTP_LIGHT_LEVEL     0x6C
 #define OTP_MOTION_DETECTOR 0x6D
 #define OTP_OCCUPANCY       0x6F
+#define OTP_REAL_POWER      0x70
 #define OTP_ROTATION_SPEED  0x72
 #define OTP_SWITCH_STATE    0x73
+#define OTP_TEMPERATURE     0x74
+#define OTP_VOLTAGE         0x76
 #define OTP_WATER_FLOW_RATE 0x77
 #define OTP_WATER_PRESSURE  0x78
 #define OTP_TEST            0xAA

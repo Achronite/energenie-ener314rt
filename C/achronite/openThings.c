@@ -714,11 +714,11 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 #endif
         break;
 
-    case OTCP_ON_OFF_MODE:
+    case OTCP_SET_THERMOSTAT_MODE:
         msglen = MIN_R1_MSGLEN + 1;
         iType = 0x01;
 #if defined(TRACE)
-        printf("OTCP_ON_OFF_MODE msglen=%d\n", msglen);
+        printf("OTCP_SET_THERMOSTAT_MODE msglen=%d\n", msglen);
 #endif
         break;
 

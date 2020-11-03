@@ -31,7 +31,7 @@ struct OT_PARAM {
 
 
 /* OpenThings Command Parameters - 0x80 added */
-#define OTCP_ON_OFF_MODE     0xAA   /* 170: Set thermostat on/off mode ??
+#define OTCP_SET_THERMOSTAT_MODE     0xAA   /* 170: Set thermostat off/on/permanently on
                                        Length 1
                                     */
 #define OTCP_EXERCISE_VALVE  0xA3   /* 163: Send exercise valve command to driver board. 

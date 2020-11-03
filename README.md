@@ -34,6 +34,7 @@ These functions are exposed by this module:
 |openThingsDeviceList|List discovered devices|scan|json|nf_openThings_deviceList
 |openThingsReceive|Get single message|timeout|json|nf_openThings_receive
 |openThingsReceiveThread|Start Receive Thread|timeout, callback|via cb|tf_openThings_receive_thread
+|openThingsCmd|Send an OpenThings command immediately|productId, deviceId, command, data, xmits||nf_openThings_cmd
 |openThingsCacheCmd*|Cache an eTRV Command|deviceId, command, data||nf_openThings_cache_cmd
 |stopMonitoring*|Stop Receive Thread|||nf_stop_openThings_receive_thread
 |ookSwitch|Switch an OOK device|zone, switchNum, switchState, xmits||nf_ook_switch
@@ -64,9 +65,9 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |---|---|:---:|:---:|:---:|
 |ENER002|Green Button Adapter|ookSwitch||x|
 |ENER010|MiHome 4 gang Multiplug|ookSwitch||x|
-|MIHO002|MiHome Adapter (Blue)|ookSwitch||x|
-|MIHO004|MiHome Energy Monitor (Pink)||openThingsReceiveThread||
-|MIHO005|MiHome Adapter Plus (Purple)|openThingsSwitch|openThingsReceiveThread|x|
+|MIHO002|MiHome Smart Plug (Blue)|ookSwitch||x|
+|MIHO004|MiHome Smart Monitor Plug (Pink)||openThingsReceiveThread||
+|MIHO005|MiHome Smart Plug+ (Purple)|openThingsSwitch|openThingsReceiveThread|x|
 |MIHO006|MiHome House Monitor||openThingsReceiveThread|x|
 |MIHO007|MiHome Socket (White)|ookSwitch||x|
 |MIHO008|MiHome Light Switch (White)|ookSwitch|||
@@ -81,7 +82,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |MIHO026|MiHome Light Switch (Steel)|ookSwitch|||
 |MIHO032|MiHome Motion sensor||openThingsReceiveThread|x|
 |MIHO033|MiHome Open Sensor||openThingsReceiveThread|x|
-|MIHO069|MiHome Heating Thermostat |openThingsCacheCmd?|openThingsReceiveThread|| 
+|MIHO069|MiHome Heating Thermostat |openThingsCmd|openThingsReceiveThread|| 
 |MIHO089|MiHome Click - Smart Button||openThingsReceiveThread||
 
 
@@ -97,7 +98,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 The received messages are passed back to node.js using the callback registered during the ``openThingsReceiveThread``.  These messages conform to the OpenThings parameter standard.
 All OpenThings parameters received from the device are decoded and returned using the callback in a json format.
 
-For example the 'Adapter Plus' returns the following parameters:
+For example the 'Smart Plug+' returns the following parameters:
 ```
 {
     "timestamp": <numeric 'epoch based' timestamp, of when message was read>
@@ -194,7 +195,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
 0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
 0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
-0.3.5|TBD|Reduced error strings on C&M node to avoid buffer overflow. Added better support for MIHO069 Thermostat. Readme updates, including success tests for 3 more devices from AdamCMC. 
+0.4.0|TBD|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. 
 
 
 ## Built With
@@ -219,4 +220,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - October 2020 - v0.3.5 Beta
+@Achronite - November 2020 - v0.4.0 Beta

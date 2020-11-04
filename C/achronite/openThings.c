@@ -31,7 +31,7 @@ static struct OT_PARAM OTparams[] = {
     {"VOLTAGE", 0x76},
     {"DIAGNOSTICS", 0x26},
     {"ALARM", 0x21},
-    {"ON_OFF_MODE", 0x2A}, // for Thermostat
+    {"THERMOSTAT_MODE", 0x2A}, // for Thermostat
     {"DEBUG_OUTPUT", 0x2D},
     {"IDENTIFY", 0x3F},
     {"SOURCE_SELECTOR", 0x40}, // write only
@@ -625,8 +625,9 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 ** x OTCP_REQUEST_VOLTAGE           0xE2  Request battery voltage 
 ** x OTCP_REQUEST_DIAGNOTICS        0xA6  Request diagnostic flags
 ** x OTCP_SET_VALVE_STATE           0xA5  Set TRV valve state
-** - OTCP_SET_LOW_POWER_MODE        0xA4  Set TRV 0=Low power mode off, 1=Low power mode on
+** x OTCP_SET_LOW_POWER_MODE        0xA4  Set TRV 0=Low power mode off, 1=Low power mode on
 ** - OTCP_SET_REPORTING_INTERVAL    0xD2  Update reporting interval to requested value
+** x OTCP_SET_THERMOSTAT_MODE       0xAA  Set mode of Room Thermostat
 **
 ** The OpenThings messages are comprised of 3 parts:
 **  Header  - msgLength, manufacturerId, productId, encryptionPIP, and deviceId
@@ -723,7 +724,7 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
         break;
 
     default:
-        // unknown command, assume a uint
+        // unknown command, assume a uint as data
         msglen = MIN_R1_MSGLEN + 1;
         iType = 0x01;
 #if defined(TRACE)

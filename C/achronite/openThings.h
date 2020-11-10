@@ -1,4 +1,4 @@
-/* openThings.h  Achronite, March 2019 - October 2020
+/* openThings.h  Achronite, March 2019 - November 2020
  * 
  * Simplified interface for ENER314-RT devices using OpenThings protocol on Raspberry Pi
  */
@@ -188,6 +188,7 @@ enum valveState {OPEN = 0, CLOSED = 1, TEMPC = 2, ERROR = 3, UNKNOWN = 4};
 struct CACHED_CMD {
     unsigned char retries;
     unsigned char command;
+    bool          active;           // used to indicate if we know the device is active (ie. we have an Rx msg) used for pre-caching
     unsigned char radio_msg[MAX_R1_MSGLEN];
 };
 
@@ -202,7 +203,6 @@ struct TRV_DEVICE {
     bool          errors;
     bool          lowPowerMode;
     bool          exerciseValve;
-    bool          active;
     enum valveState valve;
     time_t        diagnosticDate;
     time_t        voltageDate;
@@ -244,7 +244,6 @@ void openthings_scan(int iTimeOut);
 
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
 void openThings_cache_send(unsigned char index);
-//int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char xmits);
 int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime);
 void eTRV_get_status(int OTdi, char *buf, unsigned int buflen);

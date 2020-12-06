@@ -1,4 +1,4 @@
-/* openThings.h  Achronite, March 2019 - November 2020
+/* openThings.h  Achronite, March 2019 - December 2020
  * 
  * Simplified interface for ENER314-RT devices using OpenThings protocol on Raspberry Pi
  */
@@ -74,7 +74,7 @@ struct OT_PARAM {
 
 // OpenThings Rx parameters (full list in .c) - these are added here to replace magic numbers in code
 #define OTP_ALARM           0x21
-#define OTP_ON_OFF_MODE     0x2A // Added for MIHO069
+#define OTP_THERMOSTAT_MODE 0x2A // Added for MIHO069
 #define OTP_DIAGNOSTICS     0x26
 #define OTP_DEBUG_OUTPUT    0x2D
 #define OTP_IDENTIFY        0x3F

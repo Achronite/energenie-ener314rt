@@ -14,7 +14,7 @@
 #define _TRACE_H
 
 // uncomment next line to enable trace debug
-#define TRACE_POSIX
+//#define TRACE_POSIX
 //#define FULLTRACE
 
 /* POSIX IMPLEMENTATION */

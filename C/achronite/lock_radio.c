@@ -53,6 +53,7 @@ int init_ener314rt(int lock)
         {
             if ((ret = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK)) == 0)
             {
+                // TODO: use the mutex attr!
                 if ((ret = pthread_mutex_init(&radio_mutex, NULL)) != 0)
                 {
                     // mutex failure

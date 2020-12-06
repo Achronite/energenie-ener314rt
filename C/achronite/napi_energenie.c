@@ -554,6 +554,7 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
         }
 
         // 3: unsigned char iData
+        // TODO: Pass other data types
         status = napi_typeof(env, argv[3], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {

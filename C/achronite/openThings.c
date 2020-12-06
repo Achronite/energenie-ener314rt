@@ -87,7 +87,7 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
 
 // Globals - yuck
 unsigned short g_ran;
-struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // should maybe make this dynamic!
+struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // TODO: should maybe make this dynamic!
 static int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
 static int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
 static int g_PreCachedCmds = 0;            // for caching commands before device discovered
@@ -249,6 +249,10 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
     OTdi = openThings_getDeviceIndex(iDeviceId);
     if (OTdi < 0)
     {
+        // TODO: malloc device (get rid of MAX_DEVICES)
+
+        // TODO: add mutex to g_OTdevices/g_NumDevices
+
         // new device
         OTdi = g_NumDevices;
         g_OTdevices[OTdi].mfrId = mfrId;
@@ -895,6 +899,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
         if (ret == 0)
         {
             // store message against the Device array, only 1 cached command is supported at any one time
+            //TODO: add mutex
             if (g_OTdevices[index].cache->retries <= 0)
             {
                 g_CachedCmds++; // record that we have a new Cached Cmd
@@ -939,6 +944,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
         if (ret == 0)
         {
             // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
+            // TODO: add mutex to g_OTdevices/g_NumDevices
             g_PreCachedCmds++;
 
             // store message against the Device array, only 1 cached command is supported at any one time
@@ -1412,6 +1418,7 @@ void openThings_cache_send(unsigned char index)
                 // Check if PreCached and swap over globals (within lock)
                 if (g_PreCachedCmds > 0 && !g_OTdevices[index].cache->active)
                 {
+                    // TODO: added mutex
                     g_OTdevices[index].cache->active = true;
                     g_PreCachedCmds--;
                     g_CachedCmds++;
@@ -1460,6 +1467,7 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
         // Do we need to clear cached cmd retries?
         if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_VOLTAGE)
         {
+            // TODO: add mutex
             g_OTdevices[OTdi].cache->retries = 0;
             g_CachedCmds--;
         }
@@ -1473,6 +1481,7 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
         // Do we need to clear cached cmd retries? (Exercise valve cmd returns diags too!)
         if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
         {
+            // TODO: add mutex to g_OTdevices/g_NumDevices
             g_OTdevices[OTdi].cache->retries = 0;
             g_CachedCmds--;
         }

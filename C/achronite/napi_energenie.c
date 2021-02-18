@@ -731,8 +731,7 @@ static void tr_openThings_receive_thread(napi_env env, napi_value js_cb, void *c
         // value of the JavaScript function call.
         assert(napi_get_undefined(env, &undefined) == napi_ok);
 
-        // Call the JavaScript function and pass it the prime that the secondary
-        // thread found.
+        // Call the JavaScript callback function passing it the result in a buffer
         assert(napi_call_function(env,
                                   undefined,
                                   js_cb,

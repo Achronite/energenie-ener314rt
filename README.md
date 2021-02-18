@@ -196,6 +196,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
 0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
+0.4.1|TBD|Reduced internal efficiency 'sleep' from 5s to 0.5s for non-eTRV mode to reduce risk of losing a message (Issue #14). Disabled DEBUG logging in package.
 
 
 ## Built With
@@ -220,4 +221,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - December 2020 - v0.4.0 Beta
+@Achronite - February 2021 - v0.4.1 Beta

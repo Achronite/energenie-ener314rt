@@ -1171,7 +1171,8 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 }
                 else
                 {
-                    usleep(5000000); // 5s
+                    // sleep reduced to 0.5s from 5s (issue #42 - events missed)
+                    usleep(500000);
                 }
             }
         }

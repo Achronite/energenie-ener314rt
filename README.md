@@ -71,6 +71,8 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |MIHO006|MiHome House Monitor||openThingsReceiveThread|x|
 |MIHO007|MiHome Socket (White)|ookSwitch||x|
 |MIHO008|MiHome Light Switch (White)|ookSwitch|||
+|MIHO009|MiHome 2 gang Light Switch (White)|ookSwitch|||
+|MIHO010|MiHome Dimmer Switch (White)|ookSwitch|||
 |MIHO013|MiHome Radiator Valve|openThingsCacheCmd|openThingsReceiveThread|x|
 |MIHO014|Single Pole Relay (inline)|ookSwitch|||
 |MIHO015|MiHome Relay|ookSwitch|||

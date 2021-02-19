@@ -20,6 +20,7 @@
 
 // OpenThings FSK paramters (known)  [{ParamName, paramId}]
 // I've moved the likely ones to the top for speed, and included in .c file to prevent compiler warnings
+
 static struct OT_PARAM OTparams[] = {
     {"UNKNOWN", 0x00},
     {"MOTION_DETECTOR", 0x6D},
@@ -1227,9 +1228,11 @@ char * openThings_deviceList(bool scan)
     // close message
     strcat(devices, "]}");
 
+#if defined(TRACE)
     TRACE_OUTS("openthings_deviceList(): Returning: ");
     TRACE_OUTS(devices);
     TRACE_NL();
+#endif
 
     return devices;
 }

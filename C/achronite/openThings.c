@@ -15,7 +15,7 @@
 ** C module addition to energenie code to simplify the FSK OpenThings interaction with the Energenie ENER314-RT
 ** by minimising the number of calls required to interact with C radio device.
 **
-** Author: Phil Grainger - @Achronite, March 2019 - November 2020
+** Author: Phil Grainger - @Achronite, March 2019 - February 2021
 */
 
 // OpenThings FSK paramters (known)  [{ParamName, paramId}]
@@ -1188,9 +1188,11 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 ** deviceList is built up automatically by
 **  - receive an OT payload
 **  - learn a new device
-**  - or by a manual poll if empty**
+**  - or by a manual poll if empty
+**
+** v0.4.1: Changed return type to a dynamically allocated string, which should be free()d by caller
 */
-int openThings_deviceList(char *devices, bool scan)
+char * openThings_deviceList(bool scan)
 {
     int i;
     char deviceStr[100];
@@ -1203,6 +1205,10 @@ int openThings_deviceList(char *devices, bool scan)
         openthings_scan(11);
     }
 
+    // allocate the memory for the deviceList, 100 chars per device + headers
+    char *devices = malloc(50 + (g_NumDevices*100));
+
+    // begin message
     sprintf(devices, "{\"numDevices\":%d, \"devices\":[\n", g_NumDevices);
 
     for (i = 0; i < g_NumDevices; i++)
@@ -1225,7 +1231,7 @@ int openThings_deviceList(char *devices, bool scan)
     TRACE_OUTS(devices);
     TRACE_NL();
 
-    return g_NumDevices;
+    return devices;
 }
 
 /*
@@ -1249,6 +1255,8 @@ void openthings_scan(int iTimeOut)
     // Clear data
     records = 0;
     iDeviceId = 0;
+
+    TRACE_OUTS("openThings_scan(): called\n");
 
     /*
     ** Stage 1 - fill the Rx Buffer (with locking between calls)

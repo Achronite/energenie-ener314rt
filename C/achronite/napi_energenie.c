@@ -366,7 +366,9 @@ napi_value nf_openThings_deviceList(napi_env env, napi_callback_info info)
     //int ret;
     napi_valuetype type_of_argument;
 
-    char buf[500];
+    // malloced in function
+    char *buf = NULL;
+
     bool scan;
 
     // get args
@@ -397,12 +399,15 @@ napi_value nf_openThings_deviceList(napi_env env, napi_callback_info info)
     //printf("calling openThings_deviceList(buf,%d)\n", scan);
 
     // Call C routine
-    openThings_deviceList(buf, scan);
+    buf = openThings_deviceList(scan);
 
-    //printf("openThings_switch() returned %d. devices=%s\n", ret, buf);
+    //printf("nf_openThings_deviceList: 2 strlen = %d\n", strlen(buf));
 
-    // convert return string into JS value, ignore ret
+    // convert return buf string into JS value, ignore ret
     status = napi_create_string_latin1(env, buf, NAPI_AUTO_LENGTH, &nv_ret);
+
+    // free the malloced buffer from openThings_deviceList()
+    free(buf);
 
     if (status != napi_ok)
     {

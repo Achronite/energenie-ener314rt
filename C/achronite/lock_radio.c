@@ -53,6 +53,7 @@ int init_ener314rt(int lock)
         {
             if ((ret = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK)) == 0)
             {
+                // TODO: use the mutex attr!
                 if ((ret = pthread_mutex_init(&radio_mutex, NULL)) != 0)
                 {
                     // mutex failure
@@ -289,7 +290,10 @@ int send_radio_msg(unsigned char mod, unsigned char *payload, unsigned char len,
 {
     int ret = 0;
 
-    TRACE_OUTS("radio_mod_transmit(): called\n");
+    #if defined(FULLTRACE)
+        TRACE_OUTS("radio_mod_transmit(): called\n");
+    #endif
+    
     if (lock_ener314rt() == 0)
     {
         radio_mod_transmit(mod, payload, len, times);

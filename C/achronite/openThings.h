@@ -1,4 +1,4 @@
-/* openThings.h  Achronite, March 2019
+/* openThings.h  Achronite, March 2019 - December 2020
  * 
  * Simplified interface for ENER314-RT devices using OpenThings protocol on Raspberry Pi
  */
@@ -18,6 +18,7 @@
 #define PRODUCTID_MIHO013 0x03   // eTRV
 #define PRODUCTID_MIHO032 0x0C   // FSK motion sensor
 #define PRODUCTID_MIHO033 0x0D   // FSK open sensor
+#define PRODUCTID_MIHO069 0x12   // Room Thermostat
 
 /* OpenThings Parameter Keys (for read)
 ** To WRITE/Command any of these add 128 (0x80) to set bit 7
@@ -26,10 +27,13 @@ struct OT_PARAM {
   char paramName[15];
   char paramId;
 };
-#define NUM_OT_PARAMS 47
+#define NUM_OT_PARAMS 52
 
 
 /* OpenThings Command Parameters - 0x80 added */
+#define OTCP_SET_THERMOSTAT_MODE     0xAA   /* 170: Set thermostat off/on/permanently on
+                                       Length 1
+                                    */
 #define OTCP_EXERCISE_VALVE  0xA3   /* 163: Send exercise valve command to driver board. 
                                        Read diagnostic flags returned by driver board. 
                                        Send diagnostic flag acknowledgement to driver board. 
@@ -69,12 +73,9 @@ struct OT_PARAM {
 #define OTCP_TEMP_SET		 0xF4   /* 244: Send new target temperature to driver board */
 
 // OpenThings Rx parameters (full list in .c) - these are added here to replace magic numbers in code
-#define OTP_FREQUENCY       0x66
-#define OTP_REAL_POWER      0x70
-#define OTP_VOLTAGE         0x76
-#define OTP_TEMPERATURE     0x74
-#define OTP_DIAGNOSTICS     0x26
 #define OTP_ALARM           0x21
+#define OTP_THERMOSTAT_MODE 0x2A // Added for MIHO069
+#define OTP_DIAGNOSTICS     0x26
 #define OTP_DEBUG_OUTPUT    0x2D
 #define OTP_IDENTIFY        0x3F
 #define OTP_SOURCE_SELECTOR 0x40 // write only
@@ -102,6 +103,7 @@ struct OT_PARAM {
 #define OTP_CO_DETECTOR     0x63
 #define OTP_DOOR_SENSOR     0x64
 #define OTP_EMERGENCY       0x65
+#define OTP_FREQUENCY       0x66
 #define OTP_GAS_FLOW_RATE   0x67
 #define OTP_REL_HUMIDITY    0x68
 #define OTP_CURRENT         0x69
@@ -109,8 +111,11 @@ struct OT_PARAM {
 #define OTP_LIGHT_LEVEL     0x6C
 #define OTP_MOTION_DETECTOR 0x6D
 #define OTP_OCCUPANCY       0x6F
+#define OTP_REAL_POWER      0x70
 #define OTP_ROTATION_SPEED  0x72
 #define OTP_SWITCH_STATE    0x73
+#define OTP_TEMPERATURE     0x74
+#define OTP_VOLTAGE         0x76
 #define OTP_WATER_FLOW_RATE 0x77
 #define OTP_WATER_PRESSURE  0x78
 #define OTP_TEST            0xAA
@@ -179,10 +184,17 @@ enum valveState {OPEN = 0, CLOSED = 1, TEMPC = 2, ERROR = 3, UNKNOWN = 4};
 #define MAX_ERRSTR 50
 #define TRV_TX_RETRIES 10
 
+// Structure for storing cached commands for devices with Small Rx Window
+struct CACHED_CMD {
+    unsigned char retries;
+    unsigned char command;
+    bool          active;           // used to indicate if we know the device is active (ie. we have an Rx msg) used for pre-caching
+    unsigned char radio_msg[MAX_R1_MSGLEN];
+};
+
 // Structure for storing data for eTRV devices, these need to be treated as a special case for
-//  1) Small Rx Window
-//  2) Inability to retrieve all information from device
-//  3) Collating values to report at various points
+//  1) Inability to retrieve all information from device
+//  2) Collating values to report at various points
 struct TRV_DEVICE {
     float         targetC;
     float         currentC;
@@ -191,14 +203,10 @@ struct TRV_DEVICE {
     bool          errors;
     bool          lowPowerMode;
     bool          exerciseValve;
-    bool          active;
     enum valveState valve;
     time_t        diagnosticDate;
     time_t        voltageDate;
     time_t        valveDate;
-    unsigned char retries;
-    unsigned char command;
-    unsigned char cachedCmd[MAX_R1_MSGLEN];
     char errString[MAX_ERRSTR];
 };
 
@@ -210,6 +218,7 @@ struct OT_DEVICE {
     unsigned char control;
     bool          joined;
     char          product[15];
+    struct CACHED_CMD *cache;                   // need to malloc if used
     struct TRV_DEVICE *trv;                     // need to malloc if used
 };
 
@@ -227,14 +236,14 @@ struct OT_PRODUCT {
 
 /***** FUNCTION PROTOTYPES *****/
 int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits);
-int openThings_deviceList(char *devices, bool scan);
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits);
+char * openThings_deviceList(bool scan);
 int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout);
 int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits);
 void openthings_scan(int iTimeOut);
 
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
-int openThings_cache_send(unsigned int iDeviceId);
-//int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char xmits);
+void openThings_cache_send(unsigned char index);
 int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime);
 void eTRV_get_status(int OTdi, char *buf, unsigned int buflen);

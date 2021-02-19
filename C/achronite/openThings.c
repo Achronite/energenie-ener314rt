@@ -15,20 +15,24 @@
 ** C module addition to energenie code to simplify the FSK OpenThings interaction with the Energenie ENER314-RT
 ** by minimising the number of calls required to interact with C radio device.
 **
-** Author: Phil Grainger - @Achronite, March 2019
+** Author: Phil Grainger - @Achronite, March 2019 - February 2021
 */
 
 // OpenThings FSK paramters (known)  [{ParamName, paramId}]
 // I've moved the likely ones to the top for speed, and included in .c file to prevent compiler warnings
-static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
+
+static struct OT_PARAM OTparams[] = {
     {"UNKNOWN", 0x00},
+    {"MOTION_DETECTOR", 0x6D},
     {"FREQUENCY", 0x66},
     {"REAL_POWER", 0x70},
     {"REACTIVE_POWER", 0x71},
+    {"SWITCH_STATE", 0x73},
+    {"TEMPERATURE", 0x74},
     {"VOLTAGE", 0x76},
-    {"TEMPERATURE", OTP_TEMPERATURE},
     {"DIAGNOSTICS", 0x26},
     {"ALARM", 0x21},
+    {"THERMOSTAT_MODE", 0x2A}, // for Thermostat
     {"DEBUG_OUTPUT", 0x2D},
     {"IDENTIFY", 0x3F},
     {"SOURCE_SELECTOR", 0x40}, // write only
@@ -41,6 +45,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"GAS_VOLUME", 0x47},
     {"AIR_PRESSURE", 0x48},
     {"ILLUMINANCE", 0x49},
+    {"TARGET_TEMP", 0x4B}, // for Thermostat
     {"LEVEL", 0x4C},
     {"RAINFALL", 0x4D},
     {"APPARENT_POWER", 0x50},
@@ -51,6 +56,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"VIBRATION", 0x56},
     {"WATER_VOLUME", 0x57},
     {"WIND_SPEED", 0x58},
+    {"WAKEUP_MSG", 0x59}, // for Thermostat
     {"GAS_PRESSURE", 0x61},
     {"BATTERY_LEVEL", 0x62},
     {"CO_DETECTOR", 0x63},
@@ -60,11 +66,10 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"REL_HUMIDITY", 0x68},
     {"CURRENT", 0x69},
     {"JOIN", 0x6A},
+    {"RF_QUALITY", 0x6B},
     {"LIGHT_LEVEL", 0x6C},
-    {"MOTION_DETECTOR", 0x6D},
     {"OCCUPANCY", 0x6F},
     {"ROTATION_SPEED", 0x72},
-    {"SWITCH_STATE", 0x73},
     {"WATER_FLOW_RATE", 0x77},
     {"WATER_PRESSURE", 0x78},
     {"TEST", 0xAA}};
@@ -78,12 +83,12 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},
     {4, 0x0D, 0, "Open Sensor"},
-    {4, 0x0E, 1, "Thermostat"} // I dont know the productId of this yet, guessing at 0E
+    {4, 0x12, 1, "Thermostat"} // ProductId provided by red-kooga (assuming not cached as mains powered)
 };
 
 // Globals - yuck
 unsigned short g_ran;
-struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // should maybe make this dynamic!
+struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // TODO: should maybe make this dynamic!
 static int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
 static int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
 static int g_PreCachedCmds = 0;            // for caching commands before device discovered
@@ -228,7 +233,9 @@ int openThings_getDeviceIndex(unsigned int id)
     for (int i = 0; i < g_NumDevices; i++)
     {
         if (g_OTdevices[i].deviceId == id)
+        {
             return i;
+        }
     }
     return -1;
 }
@@ -243,6 +250,10 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
     OTdi = openThings_getDeviceIndex(iDeviceId);
     if (OTdi < 0)
     {
+        // TODO: malloc device (get rid of MAX_DEVICES)
+
+        // TODO: add mutex to g_OTdevices/g_NumDevices
+
         // new device
         OTdi = g_NumDevices;
         g_OTdevices[OTdi].mfrId = mfrId;
@@ -255,25 +266,38 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
         g_OTdevices[OTdi].control = OTproducts[OTpi].control;
         strcpy(g_OTdevices[OTdi].product, OTproducts[OTpi].product);
 
+        // add cached data structure for devices that needed it
+        if (g_OTdevices[OTdi].control == 2)
+        {
+            TRACE_OUTS("openThings_devicePut() adding cache cmd struct.\n");
+            g_OTdevices[OTdi].cache = malloc(sizeof(struct CACHED_CMD));
+            if (g_OTdevices[OTdi].cache != NULL)
+            {
+                // malloc OK, set defaults for cached device
+                g_OTdevices[OTdi].cache->radio_msg[0] = '\0';
+                g_OTdevices[OTdi].cache->retries = 0;
+                g_OTdevices[OTdi].cache->command = 0;
+                g_OTdevices[OTdi].cache->active = true; //set device active here, as it will be overriden in PreCached mode
+            }
+        }
+
         // add extra structure if it is an eTRV
         if (productId == PRODUCTID_MIHO013)
         {
+            TRACE_OUTS("openThings_devicePut() adding trv struct.\n");
             g_OTdevices[OTdi].trv = malloc(sizeof(struct TRV_DEVICE));
             if (g_OTdevices[OTdi].trv != NULL)
             {
                 // malloc OK, set defaults for trv
                 g_OTdevices[OTdi].trv->valve = UNKNOWN;
-                g_OTdevices[OTdi].trv->cachedCmd[0] = '\0';
                 g_OTdevices[OTdi].trv->voltageDate = 0;
                 g_OTdevices[OTdi].trv->diagnosticDate = 0;
                 g_OTdevices[OTdi].trv->valveDate = 0;
-                g_OTdevices[OTdi].trv->retries = 0;
                 g_OTdevices[OTdi].trv->diagnostics = 0;
                 g_OTdevices[OTdi].trv->voltage = 0;
                 g_OTdevices[OTdi].trv->targetC = 0;
                 g_OTdevices[OTdi].trv->errors = false;
                 g_OTdevices[OTdi].trv->lowPowerMode = false;
-                g_OTdevices[OTdi].trv->active = true;       //set device active here, as it will be overriden in PreCached mode
             }
         }
         else
@@ -318,6 +342,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     unsigned short pip, crc, crca;
     int result = 0;
     int record = 0;
+    int index = 0;
     // float f;
 
     //struct openThingsHeader sOTHeader;
@@ -358,6 +383,18 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     {
         // CRC OK
 
+        // find discovered device and check for outstanding cached cmds for it
+        // check the global first (quick) to see if we have any cached cmds outstanding
+
+        //*******************************************************************************************************HERE*******************
+        if (g_CachedCmds > 0 || g_PreCachedCmds > 0)
+        {
+            index = openThings_getDeviceIndex(*iDeviceId);
+            if (index >= 0 && g_OTdevices[index].control == 2 && g_OTdevices[index].cache->retries > 0)
+            {
+                openThings_cache_send(index);
+            }
+        }
         //DECODE RECORDS
         i = 8; // start at the 1st record
 
@@ -372,14 +409,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             recs[record].wr = ((param & 0x80) == 0x80);
             recs[record].paramId = param & 0x7F;
 
-            //
-            // If we have received a TEMPERATURE (OTP_TEMPERATURE) parameter for an eTRV (3), we need to send any outstanding messages to it ASAP as it only has a small Rx window
-            //
-            if ((recs[record].paramId == OTP_TEMPERATURE) && (*productId == 3))
-            {
-                openThings_cache_send(*iDeviceId);
-            }
-
+            // lookup the parameter name in the known parameters table
             int paramIndex = openThings_getParamIndex(recs[record].paramId);
             if (paramIndex != 0)
             {
@@ -387,6 +417,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             }
             else
             {
+                // unknown parameter
                 sprintf(recs[record].paramName, "UNKNOWN_0x%2x", recs[record].paramId);
             }
 
@@ -601,8 +632,10 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 ** x OTCP_REQUEST_VOLTAGE           0xE2  Request battery voltage 
 ** x OTCP_REQUEST_DIAGNOTICS        0xA6  Request diagnostic flags
 ** x OTCP_SET_VALVE_STATE           0xA5  Set TRV valve state
-** - OTCP_SET_LOW_POWER_MODE        0xA4  Set TRV 0=Low power mode off, 1=Low power mode on
+** x OTCP_SET_LOW_POWER_MODE        0xA4  Set TRV 0=Low power mode off, 1=Low power mode on
 ** - OTCP_SET_REPORTING_INTERVAL    0xD2  Update reporting interval to requested value
+** x OTCP_SET_THERMOSTAT_MODE       0xAA  Set mode of Room Thermostat
+** x UNKNOWN                        else  All other commands - assumes a uint as a single param
 **
 ** The OpenThings messages are comprised of 3 parts:
 **  Header  - msgLength, manufacturerId, productId, encryptionPIP, and deviceId
@@ -690,9 +723,21 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 #endif
         break;
 
+    case OTCP_SET_THERMOSTAT_MODE:
+        msglen = MIN_R1_MSGLEN + 1;
+        iType = 0x01;
+#if defined(TRACE)
+        printf("OTCP_SET_THERMOSTAT_MODE msglen=%d\n", msglen);
+#endif
+        break;
+
     default:
-        // unknown command, abort
-        return -1;
+        // unknown command, assume a uint as data
+        msglen = MIN_R1_MSGLEN + 1;
+        iType = 0x01;
+#if defined(TRACE)
+        printf("UNKNOWN msglen=%d\n", msglen);
+#endif
     }
 
     /*
@@ -775,6 +820,54 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 }
 
 /*
+** openThings_cmd() - New in v0.4
+** ================
+** Send a command to be sent to a 'Control and Monitor' RF FSK OpenThings based Energenie smart device
+** This is designed for devices that are continously listening for commands
+**
+** NOTE: This deliberately does not double check the device type as 'control' (1), so be careful this is the right function to call
+*/
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits)
+{
+    int ret = 0;
+    unsigned char radio_msg[MAX_R1_MSGLEN] = {0};
+    unsigned char msglen;
+
+#if defined(TRACE)
+    printf("openThings_cmd(): deviceId=%d, cmd=%d, data=%d\n", iDeviceId, command, data);
+#endif
+
+    /*
+    ** We are just going to send any command, regardless of if the device is the deviceList or Not
+    */
+
+    // build full radio message
+    ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
+
+    if (ret == 0)
+    {
+        msglen = radio_msg[0] + 1; // use the length already calculated and stored
+        TRACE_OUTS("openThings_cmd(): sending...\n");
+
+        if ((ret = lock_ener314rt()) == 0)
+        {
+            radio_mod_transmit(RADIO_MODULATION_FSK, radio_msg, msglen, xmits);
+            unlock_ener314rt();
+
+#if defined(TRACE)
+            printf("openThings_cmd(): sent\n");
+#endif
+        }
+        else
+        {
+            TRACE_FAIL("openThings_cmd(): ERROR getting lock");
+        }
+    }
+
+    return ret;
+}
+
+/*
 ** openThings_cache_cmd()
 ** ===================
 ** Cache a command to be sent to a 'Control and Monitor' RF FSK OpenThings based Energenie smart device
@@ -782,6 +875,7 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 **
 ** Build the full message here, as Rx window is quite small for eTRV
 **
+** TODO - add ProductId as param for device specific coding (also requires node-red change; so delayed until we can restrict dependent version)
 */
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data)
 {
@@ -793,7 +887,8 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
 #endif
 
     /*
-    ** Only eTRVs need cached commands today, so store the command in the trv specific struct for the OTdevice array if we have record of it
+    ** Device must be type 2 to accept cached commands, these devices have an extra .cache structure to store the command
+    ** but they MUST be in the deviceList already
     ** (i.e. we have had an Rx a msg from it)
     */
     index = openThings_getDeviceIndex(iDeviceId);
@@ -805,7 +900,8 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
         if (ret == 0)
         {
             // store message against the Device array, only 1 cached command is supported at any one time
-            if (g_OTdevices[index].trv->retries <= 0)
+            //TODO: add mutex
+            if (g_OTdevices[index].cache->retries <= 0)
             {
                 g_CachedCmds++; // record that we have a new Cached Cmd
 
@@ -814,18 +910,21 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                     g_CachedCmds = 1;
             }
 
-            memcpy(g_OTdevices[index].trv->cachedCmd, radio_msg, MAX_R1_MSGLEN);
-            g_OTdevices[index].trv->command = command;
-            g_OTdevices[index].trv->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
+            memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
+            g_OTdevices[index].cache->command = command;
+            g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
 
             // Store any output only variables in eTRV state
-            switch (command)
+            if (g_OTdevices[index].productId == PRODUCTID_MIHO013)
             {
-            case OTCP_TEMP_SET:
-                g_OTdevices[index].trv->targetC = data;
-                break;
-            case OTCP_SWITCH_STATE:
-                g_OTdevices[index].trv->valve = data;
+                switch (command)
+                {
+                case OTCP_TEMP_SET:
+                    g_OTdevices[index].trv->targetC = data;
+                    break;
+                case OTCP_SWITCH_STATE:
+                    g_OTdevices[index].trv->valve = data;
+                }
             }
             TRACE_OUTN(g_CachedCmds);
             TRACE_OUTS(" payload(s) cached\n");
@@ -833,34 +932,44 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
     }
     else
     {
-        // first add a placeholder for the device assuming it is an energenie TRV
-        index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, PRODUCTID_MIHO013, false);
+        // UNKNOWN device
+        // Assume eTRV as iProductId until we can pass this in via cmd params
+        char iProductId = PRODUCTID_MIHO013;
 
-        // override device to inactive as we are pre-caching before device found
-        g_OTdevices[index].trv->active = false;
+        // The device is not in the deviceList, add a placeholder for the device
+        index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, iProductId, false);
 
         // build full radio message
-        ret = openThings_build_msg(g_OTdevices[index].productId, iDeviceId, command, data, radio_msg);
+        ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
 
         if (ret == 0)
         {
             // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
+            // TODO: add mutex to g_OTdevices/g_NumDevices
             g_PreCachedCmds++;
 
             // store message against the Device array, only 1 cached command is supported at any one time
-            memcpy(g_OTdevices[index].trv->cachedCmd, radio_msg, MAX_R1_MSGLEN);
-            g_OTdevices[index].trv->command = command;
-            g_OTdevices[index].trv->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
+            memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
+            g_OTdevices[index].cache->command = command;
+            g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
+            
+            // set device to inactive as we are pre-caching before device found
+            g_OTdevices[index].cache->active = false;
 
-            // Store any output only variables in eTRV state
-            switch (command)
+            // special eTRV processing
+            if (iProductId == PRODUCTID_MIHO013)
             {
-            case OTCP_TEMP_SET:
-                g_OTdevices[index].trv->targetC = data;
-                break;
-            case OTCP_SWITCH_STATE:
-                g_OTdevices[index].trv->valve = data;
+                // Store any output only variables in eTRV state
+                switch (command)
+                {
+                case OTCP_TEMP_SET:
+                    g_OTdevices[index].trv->targetC = data;
+                    break;
+                case OTCP_SWITCH_STATE:
+                    g_OTdevices[index].trv->valve = data;
+                }
             }
+
             TRACE_OUTN(g_PreCachedCmds);
             TRACE_OUTS(" payload(s) PRE-cached\n");
         }
@@ -1063,7 +1172,8 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 }
                 else
                 {
-                    usleep(5000000); // 5s
+                    // sleep reduced to 0.5s from 5s (issue #14 - events missed)
+                    usleep(500000);
                 }
             }
         }
@@ -1079,9 +1189,11 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 ** deviceList is built up automatically by
 **  - receive an OT payload
 **  - learn a new device
-**  - or by a manual poll if empty**
+**  - or by a manual poll if empty
+**
+** v0.4.1: Changed return type to a dynamically allocated string, which should be free()d by caller
 */
-int openThings_deviceList(char *devices, bool scan)
+char * openThings_deviceList(bool scan)
 {
     int i;
     char deviceStr[100];
@@ -1094,6 +1206,10 @@ int openThings_deviceList(char *devices, bool scan)
         openthings_scan(11);
     }
 
+    // allocate the memory for the deviceList, 100 chars per device + headers
+    char *devices = malloc(50 + (g_NumDevices*100));
+
+    // begin message
     sprintf(devices, "{\"numDevices\":%d, \"devices\":[\n", g_NumDevices);
 
     for (i = 0; i < g_NumDevices; i++)
@@ -1112,11 +1228,13 @@ int openThings_deviceList(char *devices, bool scan)
     // close message
     strcat(devices, "]}");
 
+#if defined(TRACE)
     TRACE_OUTS("openthings_deviceList(): Returning: ");
     TRACE_OUTS(devices);
     TRACE_NL();
+#endif
 
-    return g_NumDevices;
+    return devices;
 }
 
 /*
@@ -1140,6 +1258,8 @@ void openthings_scan(int iTimeOut)
     // Clear data
     records = 0;
     iDeviceId = 0;
+
+    TRACE_OUTS("openThings_scan(): called\n");
 
     /*
     ** Stage 1 - fill the Rx Buffer (with locking between calls)
@@ -1280,73 +1400,56 @@ int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigne
 /*
 ** openThings_cache_send()
 ** ===================
-** Send any cached command to an eTRV OpenThings based Energenie smart device
-** This is designed for devices that have a small receive window such as the 'MiHome Heating' TRV
+** Send any cached command to an OpenThings based smart device
+** This is designed for devices that have a small receive window such as the energenie 'MiHome Heating' eTRV
 **
-** set cached command using openThings_cmd()
+** Store cached command using openThings_cache_cmd() before calling this function
+**
+** NOTE: This uses the device index, not the deviceId
 */
-int openThings_cache_send(unsigned int iDeviceId)
+void openThings_cache_send(unsigned char index)
 {
-    int index = 0;
     unsigned char msglen;
 
     /*
-    ** The full command is cached in the g_OTdevices trv array
+    ** The full command is cached in the g_OTdevices.cache structure
     */
 
-    // check the global first (quick) to see if we have any cached cmds outstanding
-    if (g_CachedCmds > 0 || g_PreCachedCmds > 0)
+    // first check if we have alredy have cached command for the device; these take precedence
+    if (g_OTdevices[index].cache->retries > 0)
     {
-        index = openThings_getDeviceIndex(iDeviceId);
-        if (index >= 0)
+        msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
+        if (msglen > 1)
         {
-            // first check if we have outstanding cached commands; these take precedence
-            if (g_OTdevices[index].trv->retries > 0)
+            TRACE_OUTS("openThings_cache_send(): sending cached msg\n");
+            // we have a cached command, send it
+            if ((lock_ener314rt()) == 0)
             {
-                msglen = g_OTdevices[index].trv->cachedCmd[0] + 1; // msglen in radio message doesn't include the length byte :)
-                if (msglen > 1)
-                {
-                    // we have a cached command, send it
-                    if ((lock_ener314rt()) == 0)
-                    {
-                        radio_mod_transmit(RADIO_MODULATION_FSK, g_OTdevices[index].trv->cachedCmd, msglen, 1); //TODO make xmits configurable
+                radio_mod_transmit(RADIO_MODULATION_FSK, g_OTdevices[index].cache->radio_msg, msglen, 1); //TODO make xmits configurable
 
-                        // Check if PreCached and swap over globals (within lock)
-                        if (g_PreCachedCmds > 0 && !g_OTdevices[index].trv->active)
-                        {
-                            g_OTdevices[index].trv->active = true;
-                            g_PreCachedCmds--;
-                            g_CachedCmds++;
-                            TRACE_OUTS("openThings_cache_send(): g_PreCachedCmds--");
-                        }
-                        unlock_ener314rt();
-                        g_OTdevices[index].trv->retries--;
+                // Check if PreCached and swap over globals (within lock)
+                if (g_PreCachedCmds > 0 && !g_OTdevices[index].cache->active)
+                {
+                    // TODO: added mutex
+                    g_OTdevices[index].cache->active = true;
+                    g_PreCachedCmds--;
+                    g_CachedCmds++;
+                    TRACE_OUTS("openThings_cache_send(): g_PreCachedCmds--");
+                }
+                unlock_ener314rt();
+                g_OTdevices[index].cache->retries--;
 
 #if defined(TRACE)
-                        printf("openThings_cache_send(): g_CachedCmds=%d, g_PreCachedCmds=%d, deviceId=%d, retries=%d\n", g_CachedCmds, g_PreCachedCmds, iDeviceId, g_OTdevices[index].trv->retries);
+                printf("openThings_cache_send(): g_CachedCmds=%d, g_PreCachedCmds=%d, deviceId=%d, retries=%d\n", g_CachedCmds, g_PreCachedCmds, g_OTdevices[index].deviceId, g_OTdevices[index].cache->retries);
 #endif
-                    }
-                    else
-                    {
-                        // critical error, cannot get lock
-                        return -2;
-                    }
-                }
-                else
-                {
-                    // no message to send!
-                    return 0;
-                }
             }
-            else
-            {
-                // No outstanding cached commands
-                // TO-DO periodic auto-reporting
-                return 0;
-            }
-        } // else unknown device
+        }
     }
-    return index;
+    else
+    {
+        // No outstanding cached commands
+        // TO-DO periodic auto-reporting
+    }
 }
 
 /*
@@ -1359,6 +1462,8 @@ int openThings_cache_send(unsigned int iDeviceId)
 */
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
 {
+    TRACE_OUTS("eTRV_update()\n");
+
     struct TRV_DEVICE *trvData;
     trvData = g_OTdevices[OTdi].trv; // make a pointer to correct struct in array for speed
 
@@ -1372,9 +1477,10 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
         trvData->voltageDate = updateTime;
 
         // Do we need to clear cached cmd retries?
-        if (trvData->command == OTCP_REQUEST_VOLTAGE)
+        if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_VOLTAGE)
         {
-            trvData->retries = 0;
+            // TODO: add mutex
+            g_OTdevices[OTdi].cache->retries = 0;
             g_CachedCmds--;
         }
         break;
@@ -1385,9 +1491,10 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
         trvData->errString[0] = '\0';
 
         // Do we need to clear cached cmd retries? (Exercise valve cmd returns diags too!)
-        if (trvData->command == OTCP_REQUEST_DIAGNOTICS || trvData->command == OTCP_EXERCISE_VALVE)
+        if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
         {
-            trvData->retries = 0;
+            // TODO: add mutex to g_OTdevices/g_NumDevices
+            g_OTdevices[OTdi].cache->retries = 0;
             g_CachedCmds--;
         }
 
@@ -1502,11 +1609,11 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     static const char *VALVE_STR[] = {"open", "closed", "auto", "error", "unknown"};
 
     // populate outstanding command
-    if (trvData->retries > 0)
+    if (g_OTdevices[OTdi].cache->retries > 0)
     {
         sprintf(trvStatus, ",\"command\":%d,\"retries\":%d",
-                trvData->command,
-                trvData->retries);
+                g_OTdevices[OTdi].cache->command,
+                g_OTdevices[OTdi].cache->retries);
         strncat(buf, trvStatus, buflen);
     }
     if (trvData->targetC > 0)

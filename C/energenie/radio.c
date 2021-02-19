@@ -1,6 +1,7 @@
 /* radio.c  12/04/2016  D.J.Whale
  *          13/04/2019  Achronite - Additional functions and fixes
  *          01/02/2020  Achronite - Made init return -ve on failure
+ *          27/10/2020  Achronite - Made some trace statements FULLTRACE
  *
  * An interface to the Energenie Raspberry Pi Radio board ENER314-RT-VER01
  *
@@ -208,7 +209,9 @@ static void _change_mode(uint8_t mode)
 
 static void _wait_ready(void)
 {
-    TRACE_OUTS("_wait_ready\n");
+    #if defined(FULLTRACE)
+        TRACE_OUTS("_wait_ready\n");
+    # endif
     HRF_pollreg(HRF_ADDR_IRQFLAGS1, HRF_MASK_MODEREADY, HRF_MASK_MODEREADY);
 }
 
@@ -217,7 +220,9 @@ static void _wait_ready(void)
 
 static void _wait_txready(void)
 {
-    TRACE_OUTS("_wait_txready\n");
+    #if defined(FULLTRACE)
+        TRACE_OUTS("_wait_txready\n");
+    #endif
     HRF_pollreg(HRF_ADDR_IRQFLAGS1, HRF_MASK_MODEREADY | HRF_MASK_TXREADY, HRF_MASK_MODEREADY | HRF_MASK_TXREADY);
 }
 
@@ -241,7 +246,7 @@ void radio_reset(void)
 // @achronite - Feb 2020 - return -ve when radio or gpio/spi broken
 int radio_init(void)
 {
-    TRACE_OUTS("radio_init\n");
+    TRACE_OUTS("radio_init()\n");
 
     //gpio_init(); done by spi_init at moment
     int ret = spi_init(&radioConfig);
@@ -419,7 +424,9 @@ void radio_send_payload(uint8_t *payload, uint8_t len, uint8_t times)
         // otherwise transmit will never start.
         /* wait for FIFO to not exceed threshold level */
         HRF_pollreg(HRF_ADDR_IRQFLAGS2, HRF_MASK_FIFOLEVEL, 0);
-        TRACE_OUTC('|');
+        #if defined(FULLTRACE)
+            TRACE_OUTC('|');
+        #endif
     }
 
     // wait for FIFO empty, to indicate transmission completed
@@ -566,7 +573,9 @@ void radio_setmode(RADIO_MODULATION mod, RADIO_MODE mode)
 
 void radio_mod_transmit(RADIO_MODULATION mod, uint8_t *payload, uint8_t len, uint8_t times)
 {
-    TRACE_OUTS("radio_mod_transmit()\n");
+    #if defined(FULLTRACE)
+        TRACE_OUTS("radio_mod_transmit()\n");
+    #endif
 
     // preserve previous mode & modulation
     uint8_t prevmod = radio_data.modu;

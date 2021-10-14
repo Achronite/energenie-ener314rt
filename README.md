@@ -139,13 +139,13 @@ Single commands should be sent using the ``openThingsCacheCmd`` function, using 
 > \* Although this will not auto-report, a subsequent call to *REQUEST_DIAGNOTICS* will confirm the *LOW_POWER_MODE* setting
 
 ### Command Caching
-The eTRV reports its temperature at the *SET_REPORTING_INTERVAL* (default 5 minutes). The receiver is activated after each *TEMPERATURE* report to listen for commands. The receiver only remains active for 200ms or until a message is received.
+Battery powered energenie devices, such as the eTRV or Thermostat do not constantly listen for commands.  For example, the eTRV reports its temperature at the *SET_REPORTING_INTERVAL* (default 5 minutes) after which the receiver is then activated to listen for commands. The receiver only remains active for 200ms or until a message is received.
 
-To cater for this hardware limitation the ``openThingsReceiveThread`` and ``openThingsCacheCmd`` functions should be used.  Any command sent using the **CacheCmd** function will be held until a TEMPERATURE report is received by the receive thread; at this point the most recent cached message (only 1 is supported) will be sent to the eTRV.  Messages will continue to be resent until they have been succesfully received or until the number of Retries has reached 0.
+To cater for these hardware limitations the ``openThingsReceiveThread`` and ``openThingsCacheCmd`` functions should be used.  Any command sent using the **CacheCmd** function will be held until a report is received by the receive thread from the device; at this point the most recent cached message (only 1 is supported) will be sent to the device.  Messages will continue to be resent until we know they have been succesfully received or until the number of retries has reached 0.
 
 The reason that a command may be resent multiple times is due to reporting issues. The eTRV devices, unfortunately, do not send acknowledgement for every command type (indicated by a 'No' in the *Response* column in the above table).  This includes the *TEMP_SET* command!  So these commands are always resent for the full number of retries.
 
-> **NOTE:** The performance of node may decrease when an eTRV command is cached due to dynamic polling. The frequency that the radio device is polled by the monitor thread automatically increases by a factor of 200 when a command is cached (it goes from checking every 5 seconds to every 25 milliseconds) this dramatically increases the chance of a message being correctly received sooner.
+> **NOTE:** The performance of node may decrease when a command is cached due to dynamic polling. The frequency that the radio device is polled by the monitor thread automatically increases by a factor of 200 when a command is cached (it goes from checking every 5 seconds to every 25 milliseconds) this dramatically increases the chance of a message being correctly received sooner.
 
 ### eTRV Monitor Messages
 
@@ -199,8 +199,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
-0.4.2|Oct 21|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable.
-
+0.4.2|Oct 21|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19).
 
 ## Built With
 

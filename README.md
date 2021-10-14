@@ -84,7 +84,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |MIHO026|MiHome Light Switch (Steel)|ookSwitch|||
 |MIHO032|MiHome Motion sensor||openThingsReceiveThread|x|
 |MIHO033|MiHome Open Sensor||openThingsReceiveThread|x|
-|MIHO069|MiHome Heating Thermostat |openThingsCmd|openThingsReceiveThread|| 
+|MIHO069|MiHome Heating Thermostat|openThingsCacheCmd|openThingsReceiveThread|| 
 |MIHO089|MiHome Click - Smart Button||openThingsReceiveThread||
 
 
@@ -199,6 +199,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
+0.4.2|Oct 21|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable.
 
 
 ## Built With
@@ -223,4 +224,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - February 2021 - v0.4.1 Beta
+@Achronite - October 2021 - v0.4.2 Beta

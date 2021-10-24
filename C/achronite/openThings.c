@@ -83,7 +83,7 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},
     {4, 0x0D, 0, "Open Sensor"},
-    {4, 0x12, 2, "Thermostat"} // ProductId provided by @red-kooga. @immigrant confirmed it is a cached device
+    {4, 0x12, 2, "Thermostat"} // ProductId provided by @red-kooga. @imgrant confirmed it is a cached device
 };
 
 // Globals - yuck
@@ -1155,8 +1155,8 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                         {
                             if (OTrecs[0].paramId == OTP_WAKEUP)
                             {
-                                // On WAKEUP send cached command
-                                openThings_cache_send(iDeviceId);
+                                // On WAKEUP send cached command; this assumes these are sent regularly!
+                                openThings_cache_send(OTdi);
                             }
                             else
                             {

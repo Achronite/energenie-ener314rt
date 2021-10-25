@@ -14,8 +14,8 @@
 #define _TRACE_H
 
 // uncomment next line to enable trace debug
-//#define TRACE_POSIX
-//#define FULLTRACE
+#define TRACE_POSIX
+#define FULLTRACE
 
 /* POSIX IMPLEMENTATION */
 /* Printf is not available on some platforms, or not very efficient.

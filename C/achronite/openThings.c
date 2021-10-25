@@ -1520,7 +1520,7 @@ void openThings_cache_send(unsigned char index)
     */
 
     // first check if we have alredy have cached command for the device; these take precedence
-    if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[index].cache->retries > 0)
+    if (g_OTdevices[index].cache != NULL && g_OTdevices[index].cache->retries > 0)
     {
         msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
         if (msglen > 1)

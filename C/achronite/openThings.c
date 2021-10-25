@@ -954,7 +954,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
         // build full radio message
         ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
 
-        if (ret == 0)
+        if (ret == 0 && g_OTdevices[index].cache != NULL)
         {
             // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
             // TODO: add mutex to g_OTdevices/g_NumDevices
@@ -1151,7 +1151,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                     case PRODUCTID_MIHO069: // thermostat
                         // Generally we get either a OTP_WAKEUP or all data from the thermostat
 
-                        if (g_OTdevices[OTdi].cache->retries > 0)
+                        if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[OTdi].cache->retries > 0)
                         {
                             if (OTrecs[0].paramId == OTP_WAKEUP)
                             {
@@ -1520,7 +1520,7 @@ void openThings_cache_send(unsigned char index)
     */
 
     // first check if we have alredy have cached command for the device; these take precedence
-    if (g_OTdevices[index].cache->retries > 0)
+    if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[index].cache->retries > 0)
     {
         msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
         if (msglen > 1)
@@ -1569,129 +1569,136 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
     TRACE_OUTS("eTRV_update()\n");
 
     struct TRV_DEVICE *trvData;
-    trvData = g_OTdevices[OTdi].trv; // make a pointer to correct struct in array for speed
 
-    switch (OTrec.paramId)
+    // check that we have the appropriate structures defined
+    if (g_OTdevices[OTdi].trv != NULL && g_OTdevices[OTdi].cache != NULL)
     {
-    case OTP_TEMPERATURE:
-        trvData->currentC = OTrec.retFloat;
-        break;
-    case OTP_VOLTAGE:
-        trvData->voltage = OTrec.retFloat;
-        trvData->voltageDate = updateTime;
+        trvData = g_OTdevices[OTdi].trv; // make a pointer to correct struct in array for speed
 
-        // Do we need to clear cached cmd retries?
-        if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_VOLTAGE)
+        switch (OTrec.paramId)
         {
-            // TODO: add mutex
-            g_OTdevices[OTdi].cache->retries = 0;
-            g_CachedCmds--;
-        }
-        break;
-    case OTP_DIAGNOSTICS:
-        trvData->diagnostics = OTrec.retInt;
-        trvData->diagnosticDate = updateTime;
-        trvData->errors = false; // clear errors, will set again below
-        trvData->errString[0] = '\0';
+        case OTP_TEMPERATURE:
+            trvData->currentC = OTrec.retFloat;
+            break;
+        case OTP_VOLTAGE:
+            trvData->voltage = OTrec.retFloat;
+            trvData->voltageDate = updateTime;
 
-        // Do we need to clear cached cmd retries? (Exercise valve cmd returns diags too!)
-        if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOSTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
-        {
-            // TODO: add mutex to g_OTdevices/g_NumDevices
-            g_OTdevices[OTdi].cache->retries = 0;
-            g_CachedCmds--;
-        }
+            // Do we need to clear cached cmd retries?
+            if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_VOLTAGE)
+            {
+                // TODO: add mutex
+                g_OTdevices[OTdi].cache->retries = 0;
+                g_CachedCmds--;
+            }
+            break;
+        case OTP_DIAGNOSTICS:
+            trvData->diagnostics = OTrec.retInt;
+            trvData->diagnosticDate = updateTime;
+            trvData->errors = false; // clear errors, will set again below
+            trvData->errString[0] = '\0';
 
-        // Is there any specific diag data we need to store as well?
-        if (OTrec.retInt > 0)
-        {
-            // we have diagnostic flags
-            if (OTrec.retInt & 0x0001)
-            { // Motor current below expectation
-                trvData->errors = true;
-                strncpy(trvData->errString, "Motor current below expectation.", MAX_ERRSTR);
+            // Do we need to clear cached cmd retries? (Exercise valve cmd returns diags too!)
+            if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOSTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
+            {
+                // TODO: add mutex to g_OTdevices/g_NumDevices
+                g_OTdevices[OTdi].cache->retries = 0;
+                g_CachedCmds--;
             }
-            if (OTrec.retInt & 0x0002)
-            { // Motor current always high
-                trvData->errors = true;
-                strncat(trvData->errString, "Motor current always high.", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x0004)
-            { // Motor taking too long
-                trvData->errors = true;
-                strncat(trvData->errString, "Motor taking too long to open/close.", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x0008)
-            { // Discrepancy between air and pipe sensors
-                strncat(trvData->errString, "Discrepancy between air and pipe sensors.", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x0010)
-            { // Air sensor out of expected range
-                trvData->errors = true;
-                strncat(trvData->errString, "Air sensor out of expected range.", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x0020)
-            { // Pipe sensor out of expected range
-                trvData->errors = true;
-                strncat(trvData->errString, "Pipe sensor out of expected range.", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x0040)
-            { // LOW_POWER_MODE
-                trvData->lowPowerMode = true;
+
+            // Is there any specific diag data we need to store as well?
+            if (OTrec.retInt > 0)
+            {
+                // we have diagnostic flags
+                if (OTrec.retInt & 0x0001)
+                { // Motor current below expectation
+                    trvData->errors = true;
+                    strncpy(trvData->errString, "Motor current below expectation.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0002)
+                { // Motor current always high
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Motor current always high.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0004)
+                { // Motor taking too long
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Motor taking too long to open/close.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0008)
+                { // Discrepancy between air and pipe sensors
+                    strncat(trvData->errString, "Discrepancy between air and pipe sensors.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0010)
+                { // Air sensor out of expected range
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Air sensor out of expected range.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0020)
+                { // Pipe sensor out of expected range
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Pipe sensor out of expected range.", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x0040)
+                { // LOW_POWER_MODE
+                    trvData->lowPowerMode = true;
+                }
+                else
+                {
+                    trvData->lowPowerMode = false;
+                }
+                if (OTrec.retInt & 0x0080)
+                { // No target temperature has been set by host
+                    trvData->targetC = 0;
+                }
+                if (OTrec.retInt & 0x0100)
+                { // Valve may be sticking
+                    trvData->valve = ERROR;
+                    trvData->errors = true;
+                }
+                if (OTrec.retInt & 0x0200)
+                { // EXERCISE_VALVE success
+                    trvData->exerciseValve = true;
+                    trvData->valveDate = updateTime;
+                }
+                if (OTrec.retInt & 0x0400)
+                { // EXERCISE_VALVE fail
+                    trvData->exerciseValve = false;
+                    trvData->valveDate = updateTime;
+                    trvData->errors = true;
+                }
+                if (OTrec.retInt & 0x0800)
+                { // Driver micro has suffered a watchdog reset and needs data refresh
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Driver micro watchdog reset, data refresh needed", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x1000)
+                { // Driver micro has suffered a noise reset and needs data refresh
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Driver micro noise reset, data refresh needed", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x2000)
+                { // Battery voltage has fallen below 2p2V and valve has been opened
+                    trvData->errors = true;
+                    strncat(trvData->errString, "Battery voltage below 2.2V, valve opened", MAX_ERRSTR);
+                }
+                if (OTrec.retInt & 0x4000)
+                { // Request for heat messaging is enabled - not sure what to do here, or even how to set this!
+                    //trvData->
+                }
+                if (OTrec.retInt & 0x8000)
+                { // Request for heat  - not sure what to do here
+                    //trvData->
+                }
             }
             else
             {
+                // some flags may need clearing as we have 0
                 trvData->lowPowerMode = false;
             }
-            if (OTrec.retInt & 0x0080)
-            { // No target temperature has been set by host
-                trvData->targetC = 0;
-            }
-            if (OTrec.retInt & 0x0100)
-            { // Valve may be sticking
-                trvData->valve = ERROR;
-                trvData->errors = true;
-            }
-            if (OTrec.retInt & 0x0200)
-            { // EXERCISE_VALVE success
-                trvData->exerciseValve = true;
-                trvData->valveDate = updateTime;
-            }
-            if (OTrec.retInt & 0x0400)
-            { // EXERCISE_VALVE fail
-                trvData->exerciseValve = false;
-                trvData->valveDate = updateTime;
-                trvData->errors = true;
-            }
-            if (OTrec.retInt & 0x0800)
-            { // Driver micro has suffered a watchdog reset and needs data refresh
-                trvData->errors = true;
-                strncat(trvData->errString, "Driver micro watchdog reset, data refresh needed", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x1000)
-            { // Driver micro has suffered a noise reset and needs data refresh
-                trvData->errors = true;
-                strncat(trvData->errString, "Driver micro noise reset, data refresh needed", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x2000)
-            { // Battery voltage has fallen below 2p2V and valve has been opened
-                trvData->errors = true;
-                strncat(trvData->errString, "Battery voltage below 2.2V, valve opened", MAX_ERRSTR);
-            }
-            if (OTrec.retInt & 0x4000)
-            { // Request for heat messaging is enabled - not sure what to do here, or even how to set this!
-                //trvData->
-            }
-            if (OTrec.retInt & 0x8000)
-            { // Request for heat  - not sure what to do here
-                //trvData->
-            }
         }
-        else
-        {
-            // some flags may need clearing as we have 0
-            trvData->lowPowerMode = false;
-        }
+    } else {
+        TRACE_FAIL("eTRV_update(): ERROR: cache or trv structure undefined\n");
     }
 }
 
@@ -1713,49 +1720,54 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     static const char *VALVE_STR[] = {"open", "closed", "auto", "error", "unknown"};
 
     // populate outstanding command
-    if (g_OTdevices[OTdi].cache->retries > 0)
+    if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[OTdi].cache->retries > 0)
     {
         sprintf(trvStatus, ",\"command\":%d,\"retries\":%d",
                 g_OTdevices[OTdi].cache->command,
                 g_OTdevices[OTdi].cache->retries);
         strncat(buf, trvStatus, buflen);
     }
-    if (trvData->targetC > 0)
+    if (g_OTdevices[OTdi].trv != NULL)
     {
-        sprintf(trvStatus, ",\"TARGET_C\":%.1f", trvData->targetC);
-        strncat(buf, trvStatus, buflen);
-    }
-    if (trvData->voltage > 0)
-    {
-        sprintf(trvStatus, ",\"VOLTAGE\":%.2f,\"VOLTAGE_TS\":%d", trvData->voltage, (int)trvData->voltageDate);
-        strncat(buf, trvStatus, buflen);
-    }
-    if (trvData->valve != UNKNOWN)
-    {
-        sprintf(trvStatus, ",\"VALVE_STATE\":\"%s\"", VALVE_STR[trvData->valve]);
-        strncat(buf, trvStatus, buflen);
-    }
-    if (trvData->valveDate > 0)
-    {
-        sprintf(trvStatus, ",\"EXERCISE_VALVE\":\"%s\",\"VALVE_TS\":%d",
-                trvData->exerciseValve ? "success" : "fail",
-                (int)trvData->valveDate);
-        strncat(buf, trvStatus, buflen);
-    }
-    if (trvData->diagnosticDate > 0)
-    {
-        sprintf(trvStatus, ",\"DIAGNOSTICS\":%d,\"DIAGNOSTICS_TS\":%d,\"LOW_POWER_MODE\":%s",
-                trvData->diagnostics,
-                (int)trvData->diagnosticDate,
-                trvData->lowPowerMode ? "true" : "false");
-        strncat(buf, trvStatus, buflen);
-    }
-    if (trvData->errors)
-    {
-        sprintf(trvStatus, ",\"ERRORS\":%s,\"ERROR_TEXT\":\"%s\"",
-                trvData->errors ? "true" : "false",
-                trvData->errString);
-        strncat(buf, trvStatus, buflen);
+        if (trvData->targetC > 0)
+        {
+            sprintf(trvStatus, ",\"TARGET_C\":%.1f", trvData->targetC);
+            strncat(buf, trvStatus, buflen);
+        }
+        if (trvData->voltage > 0)
+        {
+            sprintf(trvStatus, ",\"VOLTAGE\":%.2f,\"VOLTAGE_TS\":%d", trvData->voltage, (int)trvData->voltageDate);
+            strncat(buf, trvStatus, buflen);
+        }
+        if (trvData->valve != UNKNOWN)
+        {
+            sprintf(trvStatus, ",\"VALVE_STATE\":\"%s\"", VALVE_STR[trvData->valve]);
+            strncat(buf, trvStatus, buflen);
+        }
+        if (trvData->valveDate > 0)
+        {
+            sprintf(trvStatus, ",\"EXERCISE_VALVE\":\"%s\",\"VALVE_TS\":%d",
+                    trvData->exerciseValve ? "success" : "fail",
+                    (int)trvData->valveDate);
+            strncat(buf, trvStatus, buflen);
+        }
+        if (trvData->diagnosticDate > 0)
+        {
+            sprintf(trvStatus, ",\"DIAGNOSTICS\":%d,\"DIAGNOSTICS_TS\":%d,\"LOW_POWER_MODE\":%s",
+                    trvData->diagnostics,
+                    (int)trvData->diagnosticDate,
+                    trvData->lowPowerMode ? "true" : "false");
+            strncat(buf, trvStatus, buflen);
+        }
+        if (trvData->errors)
+        {
+            sprintf(trvStatus, ",\"ERRORS\":%s,\"ERROR_TEXT\":\"%s\"",
+                    trvData->errors ? "true" : "false",
+                    trvData->errString);
+            strncat(buf, trvStatus, buflen);
+        }
+    } else {
+        TRACE_FAIL("eTRV_get_status(): ERROR: trv structure is undefined\n");
     }
     /*
 #if defined(TRACE)

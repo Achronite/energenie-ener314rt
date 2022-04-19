@@ -56,7 +56,7 @@ struct OT_PARAM {
                                        Length 1
                                        */
                                       
-#define OTCP_REQUEST_DIAGNOTICS 0xA6  /* 166: Request diagnostic flags.
+#define OTCP_REQUEST_DIAGNOSTICS 0xA6  /* 166: Request diagnostic flags.
                                          Flash red LED once every 5 seconds if ‘battery dead’ flag is set.
                                          Length 0
                                       */
@@ -88,6 +88,7 @@ struct OT_PARAM {
 #define OTP_GAS_VOLUME      0x47
 #define OTP_AIR_PRESSURE    0x48
 #define OTP_ILLUMINANCE     0x49
+#define OTP_TARGET_TEMP     0x4B
 #define OTP_LEVEL           0x4C
 #define OTP_RAINFALL        0x4D
 #define OTP_APPARENT_POWER  0x50
@@ -98,6 +99,7 @@ struct OT_PARAM {
 #define OTP_VIBRATION       0x56
 #define OTP_WATER_VOLUME    0x57
 #define OTP_WIND_SPEED      0x58
+#define OTP_WAKEUP          0x59
 #define OTP_GAS_PRESSURE    0x61
 #define OTP_BATTERY_LEVEL   0x62
 #define OTP_CO_DETECTOR     0x63
@@ -188,6 +190,7 @@ enum valveState {OPEN = 0, CLOSED = 1, TEMPC = 2, ERROR = 3, UNKNOWN = 4};
 struct CACHED_CMD {
     unsigned char retries;
     unsigned char command;
+    int           data;
     bool          active;           // used to indicate if we know the device is active (ie. we have an Rx msg) used for pre-caching
     unsigned char radio_msg[MAX_R1_MSGLEN];
 };

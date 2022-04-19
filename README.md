@@ -118,7 +118,7 @@ A full parameter list can be found in C/src/achronite/openThings.c if required.
 ## MiHome Radiator Valve (eTRV) Support
 
 v0.3+ now supports the MiHome Thermostatic Radiator valve (eTRV).
-> WARNING: Due to the way the eTRV works there may be a delay from when a command is sent to it being processed by the device. See **eTRV Command Caching** below
+> WARNING: Due to the way the eTRV works there may be a delay from when a command is sent to it being processed by the device. See **Command Caching** below
 
 ### eTRV Commands
 The MiHome Thermostatic Radiator valve (eTRV) can accept commands to perform operations, provide diagnostics or perform self tests.  The documented commands are provided in the table below.
@@ -199,7 +199,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
-0.4.2|Oct 21|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
+0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
 
 ## Built With
 
@@ -223,4 +223,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - October 2021 - v0.4.2 Beta
+@Achronite - April 2022 - v0.5.0 Beta

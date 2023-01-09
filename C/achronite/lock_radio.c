@@ -176,7 +176,7 @@ void close_ener314rt(void)
 **
 ** returns the # of messages read, -1 if error getting lock
 **
-** TODO: Buffer is currently cyclic and destructive, we could loose messages, but I've made the assumption we always need
+** TODO: Buffer is currently cyclic and destructive, we could lose messages, but I've made the assumption we always need
 **       the latest messages
 **
 */
@@ -214,7 +214,7 @@ int empty_radio_Rx_buffer(enum deviceTypes rxMode)
             }
             else
             {
-                TRACE_OUTS("empty_radio_Rx_buffer(): error getting payload\n");
+                TRACE_OUTS("radio_get_payload_XXX(): invalid OT payload\n");
                 break;
             }
         }

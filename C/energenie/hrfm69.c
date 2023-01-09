@@ -20,10 +20,11 @@
 void HRF_writereg(uint8_t addr, uint8_t data)
 {
     #if defined(FULLTRACE)        
-        TRACE_OUTS("writereg ");
+        TRACE_OUTS("HRF_writereg(");
         TRACE_OUTN(addr);
-        TRACE_OUTC(' ');
+        TRACE_OUTC(',');
         TRACE_OUTN(data);
+        TRACE_OUTC(')');
         TRACE_NL();
     #endif
 
@@ -83,9 +84,17 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
     data = spi_byte(HRF_ADDR_FIFO);
     *(buf++) = data; /* the count byte is always returned as first byte of user buffer */
 
+    /* debug added for buffer output */
+    #if defined(FULLTRACE)
+        TRACE_OUTS(" data=");
+        TRACE_OUTN(data);
+    #endif
+
     /* Validate the payload len against the supplied user buffer */
     if (data > buflen)
-    {
+    {        
+        /* Non-OT payload received - clear the buffer */
+        HRF_clear_fifo();
         spi_deselect();
         TRACE_OUTS("buffer too small for payload len=");
         TRACE_OUTN(data);
@@ -95,12 +104,19 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
 
     buflen = data; /* now the expected payload length */
 
-    while (buflen != 0)
+    while (buflen > 0)
     {
         data = spi_byte(HRF_ADDR_FIFO);
         *(buf++) = data;
         buflen--;
+        #if defined(FULLTRACE)
+            TRACE_OUTC(':');
+            TRACE_OUTN(data);
+        #endif
     }
+
+    // Always clear any extraneous bytes from FIFO buffer
+    HRF_clear_fifo();
     spi_deselect();
 
     //TODO: Read irqflags

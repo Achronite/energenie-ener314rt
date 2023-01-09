@@ -1233,6 +1233,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             {
                                 // Cached command processed succesfully, stop retrying Tx
                                 // TODO: add mutex
+                                g_OTdevices[OTdi].cache->command = 0;
                                 g_OTdevices[OTdi].cache->retries = 0;
                                 g_CachedCmds--;
                             }
@@ -1588,6 +1589,7 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
             if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_VOLTAGE)
             {
                 // TODO: add mutex
+                g_OTdevices[OTdi].cache->command = 0;
                 g_OTdevices[OTdi].cache->retries = 0;
                 g_CachedCmds--;
             }
@@ -1602,6 +1604,7 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
             if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOSTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
             {
                 // TODO: add mutex to g_OTdevices/g_NumDevices
+                g_OTdevices[OTdi].cache->command = 0;
                 g_OTdevices[OTdi].cache->retries = 0;
                 g_CachedCmds--;
             }

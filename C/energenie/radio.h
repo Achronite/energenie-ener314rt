@@ -25,6 +25,11 @@ typedef uint8_t RADIO_MODULATION;
 
 typedef uint8_t RADIO_MODE;
 
+// error codes
+#define ERR_RADIO_MIN -3
+#define ERR_RADIO_MAX -4
+#define ERR_SPI_ROOT  -5
+
 //extern void radio_init(void);
 void radio_reset(void);
 int radio_init(void);

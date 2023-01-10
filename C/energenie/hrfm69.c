@@ -94,8 +94,7 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
     if (data > buflen)
     {        
         /* Non-OT payload received - clear the buffer */
-        HRF_clear_fifo();
-        spi_deselect();
+        HRF_clear_fifo();           //calls spi_deselect();
         TRACE_OUTS("buffer too small for payload len=");
         TRACE_OUTN(data);
         TRACE_NL();
@@ -116,8 +115,7 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
     }
 
     // Always clear any extraneous bytes from FIFO buffer
-    HRF_clear_fifo();
-    spi_deselect();
+    HRF_clear_fifo();           //calls spi_deselect();
 
     //TODO: Read irqflags
     //if underflow, this is an error (reading out too quick)

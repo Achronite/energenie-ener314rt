@@ -36,9 +36,6 @@ static void *gpio_map;
 
 static volatile unsigned *gpio;
 
-const uint8_t gpio_sim=0; /* 0=> not simulated */
-
-
 /****** MACROS *****/
 
 #define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))

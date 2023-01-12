@@ -11,8 +11,6 @@
 #include "hrfm69.h"
 #include "spi.h"
 #include "trace.h"
-#include "gpio.h"
-
 
 /*---------------------------------------------------------------------------*/
 // Write an 8 bit value to a register
@@ -171,12 +169,6 @@ HRF_RESULT HRF_checkreg(uint8_t addr, uint8_t mask, uint8_t value)
 
 void HRF_pollreg(uint8_t addr, uint8_t mask, uint8_t value)
 {
-    if (gpio_sim)
-    {
-        TRACE_OUTS("gpio simulated, bailing early to prevent lockup\n");
-        return;
-    }
-
     while (! HRF_checkreg(addr, mask, value))
     {
       // busy wait

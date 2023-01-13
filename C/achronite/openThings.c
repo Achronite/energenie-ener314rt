@@ -89,9 +89,9 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
 // Globals - yuck
 unsigned short g_ran;
 struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // TODO: should maybe make this dynamic!
-static int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
-static int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
-static int g_PreCachedCmds = 0;            // for caching commands before device discovered
+static volatile int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
+static volatile int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
+static volatile int g_PreCachedCmds = 0;            // for caching commands before device discovered
 
 /*
 ** calculateCRC()- Calculate an OpenThings CRC
@@ -1253,6 +1253,9 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 else
                 {
                     // Message read from the buffer was not a valid OpenThings message, loop immediately to get the next msg from buffer
+                    TRACE_OUTS("Non-OT message, openThings_decode() returned ");
+                    TRACE_OUTN(records);
+                    TRACE_NL();
                 }
             }
             else

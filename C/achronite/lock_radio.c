@@ -45,8 +45,10 @@ int init_ener314rt(int lock)
 
     if (!initialised)
     {
-        //initialise mutex
-        TRACE_OUTS("init_ener314(): initialising\n");
+        //initialise radio
+        TRACE_OUTS("init_ener314(");
+        TRACE_OUTN(lock);
+        TRACE_OUTS("): Initialising\n");
 
         // set mutex type to not deadlock if relocking the same mutex
         if ((ret = pthread_mutexattr_init(&attr)) == 0)
@@ -78,13 +80,14 @@ int init_ener314rt(int lock)
                     {
                         // place radio in known modulation and mode - OOK:Standby
                         initialised = true;
-                        radio_modulation(RADIO_MODULATION_OOK);
+                        //radio_modulation(RADIO_MODULATION_OOK);
                         radio_standby();
                     }
 
                     if (!lock)
                     {
                         // unlock mutex if not required to be retained
+                        TRACE_OUTS("init_ener314(): mutex unlocked\n");
                         pthread_mutex_unlock(&radio_mutex);
                     }
                 }

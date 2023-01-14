@@ -21,7 +21,7 @@
 // OpenThings FSK paramters (known)  [{ParamName, paramId}]
 // I've moved the likely ones to the top for speed, and included in .c file to prevent compiler warnings
 
-static struct OT_PARAM OTparams[] = {
+static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"UNKNOWN", 0x00},
     {"MOTION_DETECTOR", 0x6D},
     {"FREQUENCY", 0x66},

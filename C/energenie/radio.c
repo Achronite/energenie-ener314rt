@@ -2,49 +2,12 @@
  *          13/04/2019  Achronite - Additional functions and fixes
  *          01/02/2020  Achronite - Made init return -ve on failure
  *          27/10/2020  Achronite - Made some trace statements FULLTRACE
+ *          14/01/2023  Achronite - Refactored to use allow for hardware SPI driver
  *
  * An interface to the Energenie Raspberry Pi Radio board ENER314-RT-VER01
  *
  * https://energenie4u.co.uk/index.phpcatalogue/product/ENER314-RT
  */
-
-/* TODO (rx)
-DONE: decide interface for: HRF_readfifo_burst(uint8_t* buf, uint8_t len)
-DONE: Knit in the payload check
-DONE: Knit in the get_payload
-
-TODO: test with monitor.py (receive only mode, FSK)
-*/
-
-/* TODO (OOK rx)
-TODO: Write a tester legacy_rx.py to exercise 16 byte OOK receive
-TODO: See if we can receive from RF hand transmiter
-TODO: See how much 'noise bytes' we get
-TODO: Might need to set the sync bytes on OOK receive to prevent false trigger
-  This will mean loading a different configuration for OOK receive to transmit
-  But we don't want to be manually looking for sync bits, and we don't want
-  to use the preamble generator on tx as it doesn't work too well.
-*/
-
-/*
-TODO: Harden up the payload receiver
-  1. If there is a corrupted packet in the fifo, the first byte
-  might not be the length byte, and the read might fail or leave
-  bytes in the buffer. So, the receiver needs to be hardended up
-  to cope with these cases. HRF_readfifo_burst returns an error
-  if the length byte is longer than buflen, but need to check this
-  error code.
-
-  2. if we are in fixed length, or count byte, and more data
-  is in the fifo than we expect, this will be read next time.
-  Perhaps we need to clear the fifo at the end of each read operation,
-  and also report if there is junk in the buffer (i.e. would always
-  expect a read to leave an empty fifo).
-
-  3. We should check the fifo underrun bit at the end of a read,
-  this would mean that some of the bytes we read are not real bytes
-  and should not be interpreted, that packet should be junked.
-*/
 
 /* TODO: DUTY CYCLE PROTECTION REQUIREMENT
  *
@@ -71,7 +34,6 @@ TODO: Harden up the payload receiver
 #include "radio.h"
 #include "delay.h"
 #include "gpio.h"
-#include "spi.h"
 #include "hrfm69.h"
 #include "trace.h"
 
@@ -84,36 +46,20 @@ TODO: Harden up the payload receiver
 #define RADIO_VAL_SYNCVALUE1FSK 0x2D // 1st byte of Sync word
 #define RADIO_VAL_SYNCVALUE2FSK 0xD4 // 2nd byte of Sync word
 #define RADIO_VAL_SYNCVALUE1OOK 0x80 // 1nd byte of Sync word
-//#define RADIO_VAL_PACKETCONFIG1FSK       0xA2	// Variable length, Manchester coding, Addr must match NodeAddress
+#define RADIO_VAL_PACKETCONFIG1FSK       0xA2	// Variable length, Manchester coding, Addr must match NodeAddress
 #define RADIO_VAL_PACKETCONFIG1FSKNO 0xA0 // Variable length, Manchester coding
-
-//TODO: Not sure, might pass this in? What about on Arduino?
-//What about if we have multiple chip selects on same SPI?
-//What about if we have multiple spi's on different pins?
 
 /* GPIO assignments for Raspberry Pi using BCM numbering */
 #define RESET 25
 // GREEN used for RX, RED used for TX
-#define LED_GREEN 27 // (not B rev1)
-#define LED_RED 22
-
-#define CS 7 // CE1
-#define SCLK 11
-#define MOSI 10
-#define MISO 9
-#define TSETTLE (1) /* us settle */
-#define THOLD (1)   /* us hold */
-#define TFREQ (1)   /* us half clock */
-
-SPI_CONFIG radioConfig = {CS, SCLK, MOSI, MISO, SPI_SPOL0, SPI_CPOL0, SPI_CPHA0, TSETTLE, THOLD, TFREQ};
+#define LED_RX 27 // (not B rev1)
+#define LED_TX 22
 
 /***** LOCAL FUNCTION PROTOTYPES *****/
-
 static void _change_mode(uint8_t mode);
 static void _wait_ready(void);
 static void _wait_txready(void);
 static void _config(HRF_CONFIG_REC *config, uint8_t len);
-//static int _payload_waiting(void);
 
 //----- ENERGENIE SPECIFIC CONFIGURATIONS --------------------------------------
 
@@ -132,9 +78,10 @@ static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG2},             // Size of the Synch word = 2 (SyncSize + 1)
     {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
     {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
-    {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
+    //{HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
+    {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSK}, // Variable length, Manchester coding, NodeAddress filtering
     {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66},            // max Length in RX, not used in Tx
-    {HRF_ADDR_NODEADDRESS, 0x06},                           // Node address used in address filtering (not used)
+    {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
 };
 #define CONFIG_FSK_COUNT (sizeof(config_FSK) / sizeof(HRF_CONFIG_REC))
 
@@ -189,17 +136,17 @@ static void _change_mode(uint8_t mode)
 {
     HRF_writereg(HRF_ADDR_OPMODE, mode);
     _wait_ready();
-    gpio_low(LED_GREEN); // TX OFF
-    gpio_low(LED_RED);   // RX OFF
+    gpio_low(LED_RX); // RX OFF
+    gpio_low(LED_TX); // TX OFF
 
     if (mode == HRF_MODE_TRANSMITTER)
     {
         _wait_txready();
-        gpio_high(LED_RED); // TX ON
+        gpio_high(LED_TX);  // TX ON
     }
     else if (mode == HRF_MODE_RECEIVER)
     {
-        gpio_high(LED_GREEN); // RX ON
+        gpio_high(LED_RX);  // RX ON
     }
     radio_data.mode = mode;
 }
@@ -210,7 +157,7 @@ static void _change_mode(uint8_t mode)
 static void _wait_ready(void)
 {
     #if defined(FULLTRACE)
-        TRACE_OUTS("_wait_ready\n");
+        TRACE_OUTS("_wait_ready(): ");
     # endif
     HRF_pollreg(HRF_ADDR_IRQFLAGS1, HRF_MASK_MODEREADY, HRF_MASK_MODEREADY);
 }
@@ -234,11 +181,15 @@ static void _wait_txready(void)
 
 void radio_reset(void)
 {
+    // reset radio, flashing both LEDs to show reset
+    gpio_high(LED_RX);
+    gpio_high(LED_TX);
     gpio_high(RESET);
     delayms(150);
-
     gpio_low(RESET);
-    delayus(100);
+    delayus(10000);
+    gpio_low(LED_RX);
+    gpio_low(LED_TX);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -246,42 +197,41 @@ void radio_reset(void)
 // @achronite - Feb 2020 - return -ve when radio or gpio/spi broken
 int radio_init(void)
 {
-    TRACE_OUTS("radio_init()\n");
+    int ret;
 
-    //gpio_init(); done by spi_init at moment
-    int ret = spi_init(&radioConfig);
+    TRACE_OUTS("radio_init()\n");
+    ret = HRF_spi_init();
 
     if (ret == 0)
     {
+        // setup board GPIO pins
         gpio_setout(RESET);
-        gpio_low(RESET);
-        gpio_setout(LED_RED);
-        gpio_setout(LED_GREEN);
+        gpio_low(RESET);                // initialise radio reset pin low
+        gpio_setout(LED_TX);
+        gpio_setout(LED_RX);
 
-        // flash both LEDs to show initialise working
-        gpio_high(LED_GREEN);
-        gpio_high(LED_RED);
-
+        // reset radio adaptor
         radio_reset();
 
         TRACE_OUTS("radio_ver=");
         uint8_t rv = radio_get_ver();
         TRACE_OUTN(rv);
         TRACE_NL();
-        if (rv < EXPECTED_RADIOVER)
+
+        if (rv != EXPECTED_RADIOVER)
         {
-            TRACE_OUTS("warning:unexpected radio ver<min\n");
-            //TRACE_FAIL("unexpected radio ver<min\n");
+            TRACE_OUTS("warning:unexpected radio ver=");
+            TRACE_OUTN(rv);
+            TRACE_NL();
             return ERR_RADIO_MIN;
         }
-        else if (rv > EXPECTED_RADIOVER)
-        {
-            TRACE_OUTS("warning:unexpected radio ver>exp\n");
-            return ERR_RADIO_MAX;
-        }
 
-        radio_standby();
+    } else {
+        TRACE_FAIL("radio_init(): Failed to initialise SPI ret=");
+        TRACE_OUTN(ret);
+        TRACE_NL();        
     }
+
     return ret;
 }
 
@@ -425,30 +375,34 @@ void radio_send_payload(uint8_t *payload, uint8_t len, uint8_t times)
         /* wait for FIFO to not exceed threshold level */
         HRF_pollreg(HRF_ADDR_IRQFLAGS2, HRF_MASK_FIFOLEVEL, 0);
         #if defined(FULLTRACE)
-            TRACE_OUTC('|');
+            TRACE_OUTC('X');
         #endif
     }
+
+    #if defined(FULLTRACE)
+        TRACE_OUTC('<');
+    #endif
 
     // wait for FIFO empty, to indicate transmission completed
     HRF_pollreg(HRF_ADDR_IRQFLAGS2, HRF_MASK_FIFONOTEMPTY, 0);
 
     /* CONFIRM: Was the transmit ok? */
     // Check final flags in case of overruns etc
-#if defined(FULLTRACE)
-    uint8_t irqflags1 = HRF_readreg(HRF_ADDR_IRQFLAGS1);
-    uint8_t irqflags2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
-    TRACE_OUTS("irqflags1,2=");
-    TRACE_OUTN(irqflags1);
-    TRACE_OUTC(',');
-    TRACE_OUTN(irqflags2);
-    TRACE_NL();
+    #if defined(FULLTRACE)
+        uint8_t irqflags1 = HRF_readreg(HRF_ADDR_IRQFLAGS1);
+        uint8_t irqflags2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
+        TRACE_OUTS("irqflags1,2=");
+        TRACE_OUTN(irqflags1);
+        TRACE_OUTC(',');
+        TRACE_OUTN(irqflags2);
+        TRACE_NL();
 
-    //TODO: make this TRACE_ASSERT()
-    if (((irqflags2 & HRF_MASK_FIFONOTEMPTY) != 0) || ((irqflags2 & HRF_MASK_FIFOOVERRUN) != 0))
-    {
-        TRACE_FAIL("ERROR: FIFO not empty or overrun at end of burst");
-    }
-#endif
+        //TODO: make this TRACE_ASSERT()
+        if (((irqflags2 & HRF_MASK_FIFONOTEMPTY) != 0) || ((irqflags2 & HRF_MASK_FIFOOVERRUN) != 0))
+        {
+            TRACE_FAIL("ERROR: FIFO not empty or overrun at end of burst");
+        }
+    #endif
 }
 
 /*---------------------------------------------------------------------------*/
@@ -471,12 +425,12 @@ bool radio_is_receive_waiting(void)
 // read a single payload from the payload buffer
 // this reads a fixed length payload
 
+/* Unused
 RADIO_RESULT radio_get_payload_len(uint8_t *buf, uint8_t buflen)
 {
     if (buflen > MAX_FIFO_BUFFER)
-    { /* At the moment, the receiver cannot reliably cope with payloads > 1 FIFO buffer.
-        * It *might* be able to in the future.
-        */
+    { // At the moment, the receiver cannot reliably cope with payloads > 1 FIFO buffer.
+      // It *might* be able to in the future.
         return RADIO_RESULT_ERR_LONG_PAYLOAD;
     }
     HRF_RESULT r = HRF_readfifo_burst_len(buf, buflen);
@@ -486,6 +440,7 @@ RADIO_RESULT radio_get_payload_len(uint8_t *buf, uint8_t buflen)
     }
     return RADIO_RESULT_OK;
 }
+*/
 
 /*---------------------------------------------------------------------------*/
 // read a single payload from the payload buffer
@@ -504,7 +459,7 @@ RADIO_RESULT radio_get_payload_cbp(uint8_t *buf, uint8_t buflen)
     HRF_RESULT r = HRF_readfifo_burst_cbp(buf, buflen);
     if (r != HRF_RESULT_OK)
     {
-        TRACE_OUTS("radio_get_payload_cbp failed, error=");
+        TRACE_OUTS("HRF_readfifo_burst_cbp() failed, error=");
         TRACE_OUTN(r);
         TRACE_NL();
         return RADIO_RESULT_ERR_READ_FAILED;
@@ -543,18 +498,30 @@ void radio_setmode(RADIO_MODULATION mod, RADIO_MODE mode)
         {
             _config(config_OOK, CONFIG_OOK_COUNT);
             radio_data.modu = RADIO_MODULATION_OOK;
+            #ifdef FULLTRACE
+                TRACE_OUTS("radio_setmode() modulation changed to OOK");
+            #endif
         }
         else
         {
             // assume FSK if not OOK
             _config(config_FSK, CONFIG_FSK_COUNT);
             radio_data.modu = RADIO_MODULATION_FSK;
+            #ifdef FULLTRACE
+                TRACE_OUTS("radio_setmode() modulation changed to FSK");
+            #endif
+
         }
     }
 
     // Only switch mode if required
     if (mode != radio_data.mode)
     {
+        #ifdef FULLTRACE
+            TRACE_OUTS(" mode changed to ");
+            TRACE_OUTN(mode);
+            TRACE_NL();
+        #endif
         // mode change
         _change_mode(mode);
         radio_data.mode = mode;

@@ -1,4 +1,5 @@
 /* hrf69.h  03/04/2016  D.J.Whale
+ *          14/01/2023  Achronite - added driver independent HRF_spi_init() function
  *
  * Interface for HopeRF RFM69 radio
  */
@@ -115,10 +116,13 @@ void HRF_writereg(uint8_t addr, uint8_t data);
 uint8_t HRF_readreg(uint8_t addr);
 void HRF_writefifo_burst(uint8_t* buf, uint8_t len);
 HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen);
-HRF_RESULT HRF_readfifo_burst_len(uint8_t* buf, uint8_t buflen);
+//unused HRF_RESULT HRF_readfifo_burst_len(uint8_t* buf, uint8_t buflen);
 HRF_RESULT HRF_checkreg(uint8_t addr, uint8_t mask, uint8_t value);
 void HRF_pollreg(uint8_t addr, uint8_t mask, uint8_t value);
 void HRF_clear_fifo(void);
+
+// PTG New
+int HRF_spi_init(void);
 
 #endif
 

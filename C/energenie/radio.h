@@ -41,7 +41,7 @@ void radio_standby(void);
 void radio_transmit(uint8_t* payload, uint8_t len, uint8_t times);
 void radio_send_payload(uint8_t* payload, uint8_t len, uint8_t times);
 bool radio_is_receive_waiting(void);
-RADIO_RESULT radio_get_payload_len(uint8_t* buf, uint8_t buflen);
+//unused RADIO_RESULT radio_get_payload_len(uint8_t* buf, uint8_t buflen);
 RADIO_RESULT radio_get_payload_cbp(uint8_t* buf, uint8_t buflen);
 void radio_finished(void);
 void radio_setmode(RADIO_MODULATION mod, RADIO_MODE mode);

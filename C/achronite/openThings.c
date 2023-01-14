@@ -365,7 +365,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     }
 
     printf("openThings_decode(): length=%d, payload=",length);
-    for (i=0; i<length; i++){
+    for (i=0; i<=length; i++){
         printf("%d:",payload[i]);
     }
 
@@ -410,7 +410,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
 
         while ((i < length) && (payload[i] != 0) && (record < OT_MAX_RECS))
         {
-            printf("decoding record %d. pos=%d\n",record,i);
+            printf("decoding record %d. pos=%d, ",record,i);
             // reset values
             //memset(recs[record].retChar, '\0', 15);
             result = 0;
@@ -435,6 +435,8 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             // TYPE/LEN
             recs[record].typeId = payload[i] & 0xF0;
             rlen = payload[i++] & 0x0F;
+
+            printf("recpos=%d, type=%d, rlen=%d\n",i,recs[record].typeId,rlen);
 
             if (rlen > 0)
             {
@@ -517,6 +519,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
         }
     }
 
+    printf("openThings_decode(): returning %d (i=%d)\n",record,i);
     // return the number of records
     return record;
 }
@@ -1099,6 +1102,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 //printf("openThings_receive(): msg popped, ts=%d\n", (int)rxMsg.t);
                 records = openThings_decode(rxMsg.msg, &mfrId, &productId, &iDeviceId, OTrecs);
 
+                printf("openThings_decode() returned %d records for deviceId=%d\n",records, iDeviceId);
                 if (records > 0)
                 {
                     // build response JSON

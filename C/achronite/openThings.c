@@ -352,6 +352,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
      * which looking at the spec is max 24bits (excluding FLOAT), so 3-17 bytes / record; so max would be 56/3=18 records
      */
 
+    // reproduce issue #25
+    //memcpy(payload, (unsigned char []){13,4,12,51,242,153,243,13,28,61,75,247,30,185},14);
+
     length = payload[0];
 
     // A good indication this is an OpenThings msg, is to check the length first, abort if too long or short
@@ -359,6 +362,11 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     {
         // Not OT Message, invalid length
         return -1;
+    }
+
+    printf("openThings_decode(): length=%d, payload=",length);
+    for (i=0; i<length; i++){
+        printf("%d:",payload[i]);
     }
 
     // DECODE HEADER
@@ -373,6 +381,8 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     // CHECK CRC from last 2 bytes of message
     crca = (payload[length - 1] << 8) + payload[length];
     crc = calculateCRC(&payload[5], (length - 6));
+
+    printf(" mfrId=%d, productId=%d, deviceId=%d\n",*mfrId, *productId, *iDeviceId);
 
     if (crc != crca)
     {
@@ -400,6 +410,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
 
         while ((i < length) && (payload[i] != 0) && (record < OT_MAX_RECS))
         {
+            printf("decoding record %d. pos=%d\n",record,i);
             // reset values
             //memset(recs[record].retChar, '\0', 15);
             result = 0;

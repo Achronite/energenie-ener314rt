@@ -408,9 +408,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
         //DECODE RECORDS
         i = 8; // start at the 1st record
 
-        while ((i < length) && (payload[i] != 0) && (record < OT_MAX_RECS))
+        while ((i < (length-2)) && (payload[i] != 0) && (record < OT_MAX_RECS))
         {
-            printf("decoding record %d. pos=%d, ",record,i);
+            printf("decoding record %d. pos=%d",record,i);
             // reset values
             //memset(recs[record].retChar, '\0', 15);
             result = 0;
@@ -419,9 +419,11 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             param = payload[i++];
             recs[record].wr = ((param & 0x80) == 0x80);
             recs[record].paramId = param & 0x7F;
+            printf(", param=%d, wr=%d, paramId=%d ",param,recs[record].wr,recs[record].paramId);
 
             // lookup the parameter name in the known parameters table
             int paramIndex = openThings_getParamIndex(recs[record].paramId);
+            printf(", paramIndex=%d",paramIndex);
             if (paramIndex != 0)
             {
                 strcpy(recs[record].paramName, OTparams[paramIndex].paramName);
@@ -436,7 +438,8 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             recs[record].typeId = payload[i] & 0xF0;
             rlen = payload[i++] & 0x0F;
 
-            printf("recpos=%d, type=%d, rlen=%d\n",i,recs[record].typeId,rlen);
+            printf(", recpos=%d, type=%d, rlen=%d\n",i,recs[record].typeId,rlen);
+            fflush(stdout);
 
             if (rlen > 0)
             {

@@ -55,7 +55,7 @@ void spi_select(void);
 
 void spi_deselect(void);
 
-int spi_byte(uint8_t txbyte);
+uint8_t spi_byte(uint8_t txbyte);
 
 void spi_frame(uint8_t* pTx, uint8_t* pRx, uint8_t count);
 

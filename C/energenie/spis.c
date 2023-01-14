@@ -87,7 +87,7 @@ void spi_deselect(void)
   delayus(config.tSettle);
 }
 
-int spi_byte(uint8_t txbyte)
+uint8_t spi_byte(uint8_t txbyte)
 {
   uint8_t rxbyte = 0;
   uint8_t bitno;

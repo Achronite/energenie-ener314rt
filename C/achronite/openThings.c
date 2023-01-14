@@ -426,7 +426,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             printf(", paramIndex=%d",paramIndex);
             if (paramIndex != 0)
             {
-                strncpy(recs[record].paramName, OTparams[paramIndex].paramName,15);
+                strncpy(recs[record].paramName, OTparams[paramIndex].paramName,OT_PARAM_NAME_LEN);
             }
             else
             {

@@ -55,8 +55,8 @@ These functions are exposed by this module:
     * ``parent.js``: An experimental node that forks a separate node instance to run the ``child.js`` code, and uses stdin/stdout messages between the ``parent`` and ``child`` programs.
 
 
-## Hardware based SPI driver supported - *NEW* In Version 0.6
-To increase reliability a new hardware SPI driver has been added using spidev.  The module chooses hardware or software mode on start-up. The hardware SPI driver version can be enabled using `sudo raspi-config` choosing `Interface Options` and `SPI` to enable the hardware SPI mode, do this whilst this software is not running.
+## Hardware based SPI driver - *NEW* In Version 0.6
+To increase reliability a new hardware SPI driver has been added which utilises spidev (Issue #5).  The module tries to use the hardware driver on start-up, if it has not been enabled it falls back to the software driver. The hardware SPI driver version can be enabled using `sudo raspi-config` choosing `Interface Options` and `SPI` to enable the hardware SPI mode, do this whilst this software is not running.
 
 ## Supported Devices
 
@@ -203,7 +203,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
 0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
-0.6.0|Jan 23|Fixed multiple command caching issue (#24). Hardware hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable. Extensive rewrite of all communication with adaptor for hardware and software mode.
+0.6.0|Jan 23|Fixed multiple command caching issue (#24). Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable. Extensive rewrite of all communication with adaptor for hardware and software mode. Fixed buffer overflow issue on Ubuntu (#25).
 
 ## Built With
 

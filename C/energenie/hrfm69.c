@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 
@@ -31,7 +32,7 @@ int HRF_spi_init(void){
     uint8_t spiMode = ( SPI_MODE_0 );
 
     // Initialise gpio
-    printf("HRF_spi_init(): Initialising gpio\n");
+    TRACE_OUTS("HRF_spi_init(): Initialising gpio\n");
     ret = gpio_init();
 
     // Try using hardware driver first

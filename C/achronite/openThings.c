@@ -1742,7 +1742,7 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     {
         if (trvData->targetC > 0)
         {
-            sprintf(trvStatus, ",\"TARGET_C\":%.1f", trvData->targetC);
+            sprintf(trvStatus, ",\"TARGET_TEMP\":%.1f", trvData->targetC);
             strncat(buf, trvStatus, buflen);
         }
         if (trvData->voltage > 0)

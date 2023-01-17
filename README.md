@@ -165,7 +165,7 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
     "DIAGNOSTICS":512,
     "DIAGNOSTICS_TS":1567927343,
     "LOW_POWER_MODE":false,
-    "TARGET_C": 10,
+    "TARGET_TEMP": 10,
     "VOLTAGE": 3.19,
     "VOLTAGE_TS": 1568036414,
     "ERRORS": true,
@@ -183,7 +183,7 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 |ERROR_TEXT|error information|string|DIAGNOSTIC_TS|
 |EXERCISE_VALVE|The result of the *EXERCISE_VALVE* command| success or fail|DIAGNOSTIC_TS|
 |LOW_POWER_MODE|eTRV is in low power mode state>|boolean|DIAGNOSTIC_TS|
-|TARGET_C|Target temperature in celcius|int|TEMP_SET command|
+|TARGET_TEMP|Target temperature in celcius|int||
 |TEMPERATURE|The current temperature in celcius|float|timestamp|
 |VALVE_STATE|Current valve mode/state| open, closed, auto, error|VALVE_STATE command *or* DIAGNOSTIC_TS on error|
 |VALVE_TS|timestamp of when last *EXERCISE_VALVE* took place|epoch|DIAGNOSTIC_TS|
@@ -203,7 +203,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
 0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
-0.6.0|Jan 23|Fixed multiple command caching issue (#24). Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable. Extensive rewrite of all communication with adaptor for hardware and software mode. Fixed buffer overflow issue on Ubuntu (#25).
+0.6.0|Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Ranamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).
 
 ## Built With
 

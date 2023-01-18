@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <sys/time.h>
+#include <pthread.h>
+#include <errno.h>
 #include "openThings.h"
 #include "lock_radio.h"
 #include "../energenie/radio.h"
@@ -92,6 +94,12 @@ struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // TODO: should maybe make this dynam
 static volatile int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
 static volatile int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
 static volatile int g_PreCachedCmds = 0;            // for caching commands before device discovered
+
+// declare and initialise cached count lock for multi-threading
+pthread_mutex_t cachedcount_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// private function declarations
+static void _update_cachedcmd_count( int delta, bool isCached);
 
 /*
 ** calculateCRC()- Calculate an OpenThings CRC
@@ -243,7 +251,7 @@ int openThings_getDeviceIndex(unsigned int id)
 /*
 ** openThings_devicePut() - add device to deviceList if it is not already there, return the index
 */
-int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned char productId, bool joining)
+int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned char productId, bool joined)
 {
     int OTpi, OTdi;
 
@@ -259,7 +267,7 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
         g_OTdevices[OTdi].mfrId = mfrId;
         g_OTdevices[OTdi].productId = productId;
         g_OTdevices[OTdi].deviceId = iDeviceId;
-        g_OTdevices[OTdi].joined = !joining;
+        g_OTdevices[OTdi].joined = joined;
 
         // add product characteristics
         OTpi = openThings_getProductIndex(productId);
@@ -912,14 +920,19 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                     g_OTdevices[index].cache->command = 0;
                     g_OTdevices[index].cache->retries = 0;
 
-                    // Have we detected the device yet?
+                    // Decrement CachedCmd Count
+                    _update_cachedcmd_count( -1, g_OTdevices[index].cache->active );
+                    /*
                     if (g_OTdevices[index].cache->active){
-                        g_CachedCmds--;
+                        if (g_CachedCmds > 0)
+                            g_CachedCmds--;
                         TRACE_OUTS("openThings_cache_cmd(): Cached command cleared, ");
                     } else {
-                        g_PreCachedCmds--;
+                        if (g_PreCachedCmds > 0)
+                            g_PreCachedCmds--;
                         TRACE_OUTS("openThings_cache_cmd(): Pre-cached command cleared, ");
                     }
+                    */
                     TRACE_OUTN(g_CachedCmds);
                     TRACE_OUTS(" cached payload(s),");
                     TRACE_OUTN(g_PreCachedCmds);
@@ -937,11 +950,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                     // TODO: add mutex
                     if (g_OTdevices[index].cache->retries <= 0)
                     {
-                        g_CachedCmds++; // record that we have a new Cached Cmd
-
-                        // belt and braces
-                        if (g_CachedCmds < 1)
-                            g_CachedCmds = 1;
+                        _update_cachedcmd_count(1, g_OTdevices[index].cache->active);
                     }
 
                     memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
@@ -962,7 +971,9 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                         }
                     }
                     TRACE_OUTN(g_CachedCmds);
-                    TRACE_OUTS(" payload(s) cached\n");
+                    TRACE_OUTS(" payload(s) cached, ");
+                    TRACE_OUTN(g_PreCachedCmds);
+                    TRACE_OUTS(" payload(s) PRE-cached\n");
                 }
             }
         }
@@ -975,7 +986,7 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
     }
     else
     {
-        // cater for cancel sent before caching
+        // cater for cancel sent before pre-caching
         if (command > 0){
             // UNKNOWN device
             // Assume eTRV as iProductId until we can pass this in via cmd params
@@ -992,7 +1003,9 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
             {
                 // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
                 // TODO: add mutex to g_OTdevices/g_NumDevices
-                g_PreCachedCmds++;
+                //g_PreCachedCmds++;
+                _update_cachedcmd_count(1, false);
+
 
                 // store message against the Device array, only 1 cached command is supported at any one time
                 memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
@@ -1065,7 +1078,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
     int records, i, msgsInRxBuf;
     char OTrecord[200];
     struct RADIO_MSG rxMsg;
-    bool joining = false, cmdProcessed = false;
+    bool joined = false, cmdProcessed = false;
     ;
     int OTdi;
     struct timeval startTime, currentTime, diffTime;
@@ -1154,8 +1167,9 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                                 TRACE_OUTS("openThings_receive(): New device found, sending ACK: deviceId:");
                                 TRACE_OUTN(iDeviceId);
                                 TRACE_NL();
-                                joining = true;
                                 openThings_joinACK(productId, iDeviceId, 20);
+                                joined = true;
+
                                 break;
                             case OTP_TEMPERATURE: // TEMPERATURE
                                 // Seems that TEMPERATURE (OTP_TEMPERATURE) received as type OTR_INT=1, and it should be OTR_FLOAT=2 from the eTRV, so override and return a float instead
@@ -1172,7 +1186,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                     }
 
                     // Add to deviceList
-                    OTdi = openThings_devicePut(iDeviceId, mfrId, productId, joining);
+                    OTdi = openThings_devicePut(iDeviceId, mfrId, productId, joined);
 
                     // Perform any device specific processing
                     switch (productId)
@@ -1271,7 +1285,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                                 // TODO: add mutex
                                 g_OTdevices[OTdi].cache->command = 0;
                                 g_OTdevices[OTdi].cache->retries = 0;
-                                g_CachedCmds--;
+                                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
                             }
                         }
                     }
@@ -1397,7 +1411,7 @@ void openthings_scan(int iTimeOut)
     int records, i, j;
     //char OTrecord[100];
     struct RADIO_MSG rxMsg;
-    bool joining = false;
+    bool joined = false;
 
     // Clear data
     records = 0;
@@ -1436,7 +1450,7 @@ void openthings_scan(int iTimeOut)
 
             if (records > 0)
             {
-                joining = false;
+                joined = false;
 
                 // scan records for JOIN requests, and reply to add
                 for (j = 0; j < records; j++)
@@ -1446,12 +1460,13 @@ void openthings_scan(int iTimeOut)
                         TRACE_OUTS("openThings_scan(): New device found, sending ACK: deviceId:");
                         TRACE_OUTN(iDeviceId);
                         TRACE_NL();
-                        joining = true;
                         openThings_joinACK(productId, iDeviceId, 20);
+                        joined = true;
+
                     }
                 }
                 // Add devices to standard deviceList
-                openThings_devicePut(iDeviceId, mfrId, productId, joining);
+                openThings_devicePut(iDeviceId, mfrId, productId, joined);
             }
         }
     }
@@ -1559,7 +1574,7 @@ void openThings_cache_send(unsigned char index)
     ** The full command is cached in the g_OTdevices.cache structure
     */
 
-    // first check if we have alredy have cached command for the device; these take precedence
+    // first check if we have already have cached command for the device; these take precedence
     if (g_OTdevices[index].cache != NULL && g_OTdevices[index].cache->retries > 0)
     {
         msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
@@ -1575,13 +1590,20 @@ void openThings_cache_send(unsigned char index)
                 if (g_PreCachedCmds > 0 && !g_OTdevices[index].cache->active)
                 {
                     // TODO: added mutex
+                    _update_cachedcmd_count(-1, false);
                     g_OTdevices[index].cache->active = true;
-                    g_PreCachedCmds--;
-                    g_CachedCmds++;
-                    TRACE_OUTS("openThings_cache_send(): g_PreCachedCmds--");
+                    _update_cachedcmd_count(1, true);
+                    TRACE_OUTS("openThings_cache_send(): swapped g_counts\n");
                 }
                 unlock_ener314rt();
                 g_OTdevices[index].cache->retries--;
+
+                // If we have reached 0 retries, decrement cachedCmd count and reset the command too
+                if (g_OTdevices[index].cache->retries == 0 ){
+                    _update_cachedcmd_count(-1, g_OTdevices[index].cache->active);
+                    g_OTdevices[index].cache->command = 0;
+                }
+
 
 #if defined(TRACE)
                 printf("openThings_cache_send(): g_CachedCmds=%d, g_PreCachedCmds=%d, deviceId=%d, retries=%d\n", g_CachedCmds, g_PreCachedCmds, g_OTdevices[index].deviceId, g_OTdevices[index].cache->retries);
@@ -1630,8 +1652,7 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                 // TODO: add mutex
                 g_OTdevices[OTdi].cache->command = 0;
                 g_OTdevices[OTdi].cache->retries = 0;
-                g_CachedCmds--;
-            }
+                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);            }
             break;
         case OTP_DIAGNOSTICS:
             trvData->diagnostics = OTrec.retInt;
@@ -1642,10 +1663,9 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
             // Do we need to clear cached cmd retries? (Exercise valve cmd returns diags too!)
             if (g_OTdevices[OTdi].cache->command == OTCP_REQUEST_DIAGNOSTICS || g_OTdevices[OTdi].cache->command == OTCP_EXERCISE_VALVE)
             {
-                // TODO: add mutex to g_OTdevices/g_NumDevices
                 g_OTdevices[OTdi].cache->command = 0;
                 g_OTdevices[OTdi].cache->retries = 0;
-                g_CachedCmds--;
+                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
             }
 
             // Is there any specific diag data we need to store as well?
@@ -1816,4 +1836,54 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     printf("eTRV_get_status(): %s, strlen=%d buflen:%d\n",trvStatus,strlen(trvStatus),buflen);
 #endif
 */
+}
+
+// private function that operates under a mutex to update the globals to cached/pre-cached commands
+void _update_cachedcmd_count( int delta, bool isCached){
+
+    #ifdef TRACE
+        TRACE_OUTS("_update_cachedcmd_count(");
+        TRACE_OUTN(delta);
+        TRACE_OUTC(',');
+        TRACE_OUTN(isCached);
+        TRACE_OUTS(") has set cached=");
+    #endif
+
+    // lock mutex
+    if ((pthread_mutex_lock(&cachedcount_mutex)) == 0){
+        // update cached or precached command count
+        if (isCached){
+            // cached
+            if (delta>0){
+                // inc
+                g_CachedCmds++;
+            } else {
+                // dec
+                if (g_CachedCmds > 0)
+                    g_CachedCmds--;
+            }
+        } else {
+            // preCached
+            if (delta>0){
+                // inc
+                g_PreCachedCmds++;
+            } else {
+                // dec
+                if (g_PreCachedCmds > 0)
+                    g_PreCachedCmds--;
+            }
+        }
+    
+        // unlock mutex
+        pthread_mutex_unlock(&cachedcount_mutex);
+
+        #ifdef TRACE
+            TRACE_OUTN(g_CachedCmds);
+            TRACE_OUTS(", pre-cached=");
+            TRACE_OUTN(g_PreCachedCmds);
+            TRACE_NL();
+        #endif
+    } else {
+        printf("_update_cachedcmd_count(): Failed to obtain lock ret=%d\n", errno);
+    }
 }

@@ -879,6 +879,8 @@ int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned ch
 **
 ** Build the full message here, as Rx window is quite small for eTRV
 **
+** Sending a command of 0 will clear the existing cached command
+**
 ** TODO - add ProductId as param for device specific coding (also requires node-red change; so delayed until we can restrict dependent version)
 */
 int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data)
@@ -901,41 +903,67 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
         // Check that the device is actually cachable to prevent mem errs (#18)
         if (g_OTdevices[index].control == 2)
         {
-            // Device known, build full radio message
-            ret = openThings_build_msg(g_OTdevices[index].productId, iDeviceId, command, data, radio_msg);
-
-            if (ret == 0)
+            // allow cancel of existing cached command  (Issue #27)
+            if (command == 0)
             {
-                // store message against the Device array, only 1 cached command is supported for each device
-                //TODO: add mutex
-                if (g_OTdevices[index].cache->retries <= 0)
+                // cancel the existing cached command for this device
+                if (g_OTdevices[index].cache->command > 0)
                 {
-                    g_CachedCmds++; // record that we have a new Cached Cmd
+                    g_OTdevices[index].cache->command = 0;
+                    g_OTdevices[index].cache->retries = 0;
 
-                    // belt and braces
-                    if (g_CachedCmds < 1)
-                        g_CachedCmds = 1;
-                }
-
-                memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
-                g_OTdevices[index].cache->command = command;
-                g_OTdevices[index].cache->data = data;
-                g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
-
-                // Store any output only variables in eTRV state
-                if (g_OTdevices[index].productId == PRODUCTID_MIHO013)
-                {
-                    switch (command)
-                    {
-                    case OTCP_TEMP_SET:
-                        g_OTdevices[index].trv->targetC = data;
-                        break;
-                    case OTCP_SWITCH_STATE:
-                        g_OTdevices[index].trv->valve = data;
+                    // Have we detected the device yet?
+                    if (g_OTdevices[index].cache->active){
+                        g_CachedCmds--;
+                        TRACE_OUTS("openThings_cache_cmd(): Cached command cleared, ");
+                    } else {
+                        g_PreCachedCmds--;
+                        TRACE_OUTS("openThings_cache_cmd(): Pre-cached command cleared, ");
                     }
+                    TRACE_OUTN(g_CachedCmds);
+                    TRACE_OUTS(" cached payload(s),");
+                    TRACE_OUTN(g_PreCachedCmds);
+                    TRACE_OUTS(" payload(s) PRE-cached\n");
+                };
+            }
+            else
+            {
+                // Device known, build full radio message
+                ret = openThings_build_msg(g_OTdevices[index].productId, iDeviceId, command, data, radio_msg);
+
+                if (ret == 0)
+                {
+                    // store message against the Device array, only 1 cached command is supported for each device
+                    // TODO: add mutex
+                    if (g_OTdevices[index].cache->retries <= 0)
+                    {
+                        g_CachedCmds++; // record that we have a new Cached Cmd
+
+                        // belt and braces
+                        if (g_CachedCmds < 1)
+                            g_CachedCmds = 1;
+                    }
+
+                    memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
+                    g_OTdevices[index].cache->command = command;
+                    g_OTdevices[index].cache->data = data;
+                    g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
+
+                    // Store any output only variables in eTRV state
+                    if (g_OTdevices[index].productId == PRODUCTID_MIHO013)
+                    {
+                        switch (command)
+                        {
+                        case OTCP_TEMP_SET:
+                            g_OTdevices[index].trv->targetC = data;
+                            break;
+                        case OTCP_SWITCH_STATE:
+                            g_OTdevices[index].trv->valve = data;
+                        }
+                    }
+                    TRACE_OUTN(g_CachedCmds);
+                    TRACE_OUTS(" payload(s) cached\n");
                 }
-                TRACE_OUTN(g_CachedCmds);
-                TRACE_OUTS(" payload(s) cached\n");
             }
         }
         else
@@ -947,52 +975,55 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
     }
     else
     {
-        // UNKNOWN device
-        // Assume eTRV as iProductId until we can pass this in via cmd params
-        // TODO - What about thermostat?
-        char iProductId = PRODUCTID_MIHO013;
+        // cater for cancel sent before caching
+        if (command > 0){
+            // UNKNOWN device
+            // Assume eTRV as iProductId until we can pass this in via cmd params
+            // TODO - What about thermostat?
+            char iProductId = PRODUCTID_MIHO013;
 
-        // The device is not in the deviceList, add a placeholder for the device
-        index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, iProductId, false);
+            // The device is not in the deviceList, add a placeholder for the device
+            index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, iProductId, false);
 
-        // build full radio message
-        ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
+            // build full radio message
+            ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
 
-        if (ret == 0 && g_OTdevices[index].cache != NULL)
-        {
-            // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
-            // TODO: add mutex to g_OTdevices/g_NumDevices
-            g_PreCachedCmds++;
-
-            // store message against the Device array, only 1 cached command is supported at any one time
-            memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
-            g_OTdevices[index].cache->command = command;
-            g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
-
-            // set device to inactive as we are pre-caching before device found
-            g_OTdevices[index].cache->active = false;
-
-            // special eTRV processing
-            if (iProductId == PRODUCTID_MIHO013)
+            if (ret == 0 && g_OTdevices[index].cache != NULL)
             {
-                // Store any output only variables in eTRV state
-                switch (command)
-                {
-                case OTCP_TEMP_SET:
-                    g_OTdevices[index].trv->targetC = data;
-                    break;
-                case OTCP_SWITCH_STATE:
-                    g_OTdevices[index].trv->valve = data;
-                }
-            }
+                // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
+                // TODO: add mutex to g_OTdevices/g_NumDevices
+                g_PreCachedCmds++;
 
-            TRACE_OUTN(g_PreCachedCmds);
-            TRACE_OUTS(" payload(s) PRE-cached\n");
-        }
-        else
-        {
-            TRACE_OUTS("openThings_cache_cmd() ERROR: unable to cache command\n");
-            ret = -2;
+                // store message against the Device array, only 1 cached command is supported at any one time
+                memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
+                g_OTdevices[index].cache->command = command;
+                g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
+
+                // set device to inactive as we are pre-caching before device found
+                g_OTdevices[index].cache->active = false;
+
+                // special eTRV processing
+                if (iProductId == PRODUCTID_MIHO013)
+                {
+                    // Store any output only variables in eTRV state
+                    switch (command)
+                    {
+                    case OTCP_TEMP_SET:
+                        g_OTdevices[index].trv->targetC = data;
+                        break;
+                    case OTCP_SWITCH_STATE:
+                        g_OTdevices[index].trv->valve = data;
+                    }
+                }
+
+                TRACE_OUTN(g_PreCachedCmds);
+                TRACE_OUTS(" payload(s) PRE-cached\n");
+            }
+            else
+            {
+                TRACE_OUTS("openThings_cache_cmd() ERROR: unable to cache command\n");
+                ret = -2;
+            }
         }
     }
 
@@ -1730,8 +1761,8 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     char trvStatus[200] = "";
     static const char *VALVE_STR[] = {"open", "closed", "auto", "error", "unknown"};
 
-    // populate outstanding command
-    if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[OTdi].cache->retries > 0)
+    // populate cached command (even if retries is 0)
+    if (g_OTdevices[OTdi].cache != NULL)
     {
         sprintf(trvStatus, ",\"command\":%d,\"retries\":%d",
                 g_OTdevices[OTdi].cache->command,

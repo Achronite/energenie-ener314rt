@@ -6,7 +6,6 @@ https://energenie4u.co.uk/
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/Achronite/energenie-ener314/graphs/commit-activity)
 [![Downloads](https://img.shields.io/npm/dm/energenie-ener314rt.svg)](https://www.npmjs.com/package/energenie-ener314rt)
-[![HitCount](http://hits.dwyl.io/achronite/energenie-ener314rt.svg)](http://hits.dwyl.io/achronite/energenie-ener314rt)
 ![node](https://img.shields.io/node/v/energenie-ener314rt)
 [![Release](https://img.shields.io/github/release-pre/achronite/energenie-ener314rt.svg)](https://github.com/Achronite/energenie-ener314rt/releases)
 [![NPM](https://nodei.co/npm/energenie-ener314rt.png)](https://nodei.co/npm/energenie-ener314rt/)
@@ -69,7 +68,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |ENER002|Green Button Adapter|ookSwitch||x|
 |ENER010|MiHome 4 gang Multiplug|ookSwitch||x|
 |MIHO002|MiHome Smart Plug (Blue)|ookSwitch||x|
-|MIHO004|MiHome Smart Monitor Plug (Pink)||openThingsReceiveThread||
+|MIHO004|MiHome Smart Monitor Plug (Pink)||openThingsReceiveThread|x|
 |MIHO005|MiHome Smart Plug+ (Purple)|openThingsSwitch|openThingsReceiveThread|x|
 |MIHO006|MiHome House Monitor||openThingsReceiveThread|x|
 |MIHO007|MiHome Socket (White)|ookSwitch||x|
@@ -130,6 +129,7 @@ Single commands should be sent using the ``openThingsCacheCmd`` function, using 
 
 | Command | # | Description | .data | Response Msg |
 |---|:---:|---|---|:---:|
+|CLEAR|0|Cancel current outstanding cached command for the device (set command & retries to 0)||All Msgs|
 |EXERCISE_VALVE|163|Send exercise valve command, recommended once a week to calibrate eTRV||DIAGNOSTICS|
 |SET_LOW_POWER_MODE|164|This is used to enhance battery life by limiting the hunting of the actuator, ie it limits small adjustments to degree of opening, when the room temperature is close to the *TEMP_SET* point. A consequence of the Low Power mode is that it may cause larger errors in controlling room temperature to the set temperature.|0=Off<br>1=On|No*|
 |SET_VALVE_STATE|165|Set valve state|0=Open<br>1=Closed<br>2=Auto (default)|No|
@@ -158,6 +158,8 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
     "deviceId":3989,
     "mfrId":4,
     "productId":3,
+    "command":0,
+    "retries":0,
     "timestamp":1567932119,
     "TEMPERATURE":19.7,
     "EXERCISE_VALVE":"success",
@@ -175,8 +177,8 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 
 |Parameter|Description|Data Type|Update time|
 |---|---|---|---|
-|command|number of current command being set to eTRV|int|timestamp|
-|retries|The number of remaining retries for 'command' to be sent to eTRV>|int|timestamp|
+|command|Numeric value of current cached command being set to eTRV (0=none)|int|timestamp|
+|retries|The number of remaining retries for 'command' to be sent to the device|int|timestamp|
 |DIAGNOSTICS|Numeric diagnostic code, see "ERRORS" for interpretation|int|DIAGNOSTIC_TS|
 |DIAGNOSTICS_TS|timestamp of when diagnostics were last received|epoch|DIAGNOSTIC_TS|
 |ERRORS|true if an error condition has been detected|boolean|DIAGNOSTIC_TS|
@@ -203,7 +205,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
 0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
-0.6.0|Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners
+0.6.0|19 Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners since last restart.
 
 ## Built With
 

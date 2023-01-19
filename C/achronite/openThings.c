@@ -1831,11 +1831,6 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
     } else {
         TRACE_FAIL("eTRV_get_status(): ERROR: trv structure is undefined\n");
     }
-    /*
-#if defined(TRACE)
-    printf("eTRV_get_status(): %s, strlen=%d buflen:%d\n",trvStatus,strlen(trvStatus),buflen);
-#endif
-*/
 }
 
 // private function that operates under a mutex to update the globals to cached/pre-cached commands

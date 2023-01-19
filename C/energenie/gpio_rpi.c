@@ -79,7 +79,7 @@ int gpio_init()
    {
       if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) 
       {
-         printf("can't open /dev/gpiomem or /dev/mem\n");
+         printf("ener314rt: can't open /dev/gpiomem or /dev/mem\n");
          return ERR_GPIO_DEVICE;
       }
    }
@@ -98,7 +98,7 @@ int gpio_init()
 
    if (gpio_map == MAP_FAILED) 
    {
-      printf("mmap error %d\n", (int)gpio_map); //errno also set!
+      printf("ener314rt: mmap error %d\n", (int)gpio_map); //errno also set!
       return ERR_MMAP;
    }
 

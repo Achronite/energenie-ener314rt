@@ -32,7 +32,7 @@ int HRF_spi_init(void){
     uint8_t spiMode = ( SPI_MODE_0 );
 
     // Initialise gpio
-    TRACE_OUTS("HRF_spi_init(): Initialising gpio\n");
+    TRACE_OUTS("ener314rt: Initialising gpio\n");
     ret = gpio_init();
 
     // Try using hardware driver first
@@ -41,11 +41,11 @@ int HRF_spi_init(void){
         if (_spi_hw_fd < 0)
         {
             _spi_hw_driver = false;
-            printf("HRF_spi_init():Cannot open /dev/spidev0.1 - Fallback to Software SPI driver\n");
+            printf("ener314rt: Cannot open /dev/spidev0.1 - Fallback to Software SPI driver\n");
             ret = spi_init_defaults();
         } else {
             _spi_hw_driver = true;
-            printf("HRF_spi_init(): Hardware driver enabled on /dev/spidev0.1\n");
+            printf("ener314rt: Hardware driver enabled on /dev/spidev0.1\n");
             // Set SPI mode
             // Open the SPI interface.
             // Default settings:
@@ -59,7 +59,9 @@ int HRF_spi_init(void){
             if (ioctl(_spi_hw_fd, SPI_IOC_WR_MODE, &spiMode) == 0){
                 // Get SPI mode
                 ret = ioctl(_spi_hw_fd, SPI_IOC_RD_MODE, &spiMode);
+#ifdef TRACE
                 printf("Hardware SPI ret=%d,spiMode=%d\n",ret,spiMode);
+#endif
 
                 // Set Word Length    
                 uint8_t spiWordLen = 8;
@@ -69,7 +71,7 @@ int HRF_spi_init(void){
                 uint32_t spiSpeed   = 10000000;
                 ret = ioctl(_spi_hw_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
                 if (ret != 0){
-                    printf("HRF_spi_init():ioctl failed SPI_IOC_WR_MODE\n");
+                    printf("ener314rt: ioctl failed SPI_IOC_WR_MODE\n");
                 }
             } else {
                 ret = -2;

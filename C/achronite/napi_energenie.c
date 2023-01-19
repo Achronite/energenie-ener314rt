@@ -586,13 +586,15 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid xmits");
         }
-
+#ifdef TRACE
         printf("calling openThings_cmd(%d,%d,%d,%d,%d)\n", iProductId, iDeviceId, iCommand, iData, xmits);
-
+#endif
         // Call C routine
         ret = openThings_cmd(iProductId, iDeviceId, iCommand, iData, xmits);
 
+#ifdef TRACE
         printf("openThings_cmd() returned %d\n", ret);
+#endif
     }
 
     // convert return value into JS value

@@ -47,10 +47,6 @@ int spi_init_defaults(void)
 
 int spi_init(SPI_CONFIG *pConfig)
 {
-  /* It's a standalone library, so init GPIO also */
-  int ret = gpio_init();
-  if (ret == 0)
-  {
     memcpy(&config, pConfig, sizeof(SPI_CONFIG));
 
     //TODO: Implement CPHA1
@@ -68,9 +64,8 @@ int spi_init(SPI_CONFIG *pConfig)
     gpio_setin(config.miso);
 
     gpio_setout(config.cs);
-    NOT_SELECTED();
-  }
-  return ret;
+    spi_deselect();
+    return 0;
 }
 
 void spi_finished(void)
@@ -92,7 +87,7 @@ void spi_deselect(void)
   delayus(config.tSettle);
 }
 
-int spi_byte(uint8_t txbyte)
+uint8_t spi_byte(uint8_t txbyte)
 {
   uint8_t rxbyte = 0;
   uint8_t bitno;

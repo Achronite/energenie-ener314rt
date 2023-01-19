@@ -36,9 +36,6 @@ static void *gpio_map;
 
 static volatile unsigned *gpio;
 
-const uint8_t gpio_sim=0; /* 0=> not simulated */
-
-
 /****** MACROS *****/
 
 #define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
@@ -82,7 +79,7 @@ int gpio_init()
    {
       if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) 
       {
-         printf("can't open /dev/gpiomem or /dev/mem\n");
+         printf("ener314rt: can't open /dev/gpiomem or /dev/mem\n");
          return ERR_GPIO_DEVICE;
       }
    }
@@ -101,7 +98,7 @@ int gpio_init()
 
    if (gpio_map == MAP_FAILED) 
    {
-      printf("mmap error %d\n", (int)gpio_map); //errno also set!
+      printf("ener314rt: mmap error %d\n", (int)gpio_map); //errno also set!
       return ERR_MMAP;
    }
 

@@ -23,11 +23,13 @@
 /* OpenThings Parameter Keys (for read)
 ** To WRITE/Command any of these add 128 (0x80) to set bit 7
 */
+#define OT_PARAM_NAME_LEN 16    // 15 + null termination (Fixes #25)
+#define NUM_OT_PARAMS 52
 struct OT_PARAM {
-  char paramName[15];
+  char paramName[OT_PARAM_NAME_LEN];
   char paramId;
 };
-#define NUM_OT_PARAMS 52
+
 
 
 /* OpenThings Command Parameters - 0x80 added */
@@ -169,7 +171,7 @@ struct OT_PARAM {
 struct OTrecord {
     unsigned char wr;
     unsigned char paramId;
-    char paramName[15];
+    char paramName[OT_PARAM_NAME_LEN];
     unsigned char typeId;
     char  typeIndex;
     int   retInt;                // I'm hoping this deals with signed and unsigned values

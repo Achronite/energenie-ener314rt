@@ -45,8 +45,10 @@ int init_ener314rt(int lock)
 
     if (!initialised)
     {
-        //initialise mutex
-        TRACE_OUTS("init_ener314(): initialising\n");
+        //initialise radio
+        TRACE_OUTS("init_ener314(");
+        TRACE_OUTN(lock);
+        TRACE_OUTS("): Initialising\n");
 
         // set mutex type to not deadlock if relocking the same mutex
         if ((ret = pthread_mutexattr_init(&attr)) == 0)
@@ -78,13 +80,14 @@ int init_ener314rt(int lock)
                     {
                         // place radio in known modulation and mode - OOK:Standby
                         initialised = true;
-                        radio_modulation(RADIO_MODULATION_OOK);
+                        //radio_modulation(RADIO_MODULATION_OOK);
                         radio_standby();
                     }
 
                     if (!lock)
                     {
                         // unlock mutex if not required to be retained
+                        TRACE_OUTS("init_ener314(): mutex unlocked\n");
                         pthread_mutex_unlock(&radio_mutex);
                     }
                 }
@@ -176,7 +179,7 @@ void close_ener314rt(void)
 **
 ** returns the # of messages read, -1 if error getting lock
 **
-** TODO: Buffer is currently cyclic and destructive, we could loose messages, but I've made the assumption we always need
+** TODO: Buffer is currently cyclic and destructive, we could lose messages, but I've made the assumption we always need
 **       the latest messages
 **
 */
@@ -214,7 +217,7 @@ int empty_radio_Rx_buffer(enum deviceTypes rxMode)
             }
             else
             {
-                TRACE_OUTS("empty_radio_Rx_buffer(): error getting payload\n");
+                TRACE_OUTS("radio_get_payload_XXX(): invalid OT payload\n");
                 break;
             }
         }

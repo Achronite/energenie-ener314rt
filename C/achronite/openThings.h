@@ -212,7 +212,7 @@ struct TRV_DEVICE {
     time_t        diagnosticDate;
     time_t        voltageDate;
     time_t        valveDate;
-    char errString[MAX_ERRSTR];
+    char errString[MAX_ERRSTR+1];
 };
 
 // DeviceList structure

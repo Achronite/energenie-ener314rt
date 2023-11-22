@@ -16,7 +16,7 @@ https://energenie4u.co.uk/
 You can use this node.js module to control and monitor the Energenie MiHome radio based smart devices such as adapters, sockets, lights, thermostats and relays 
 on a Raspberry Pi with an **ENER314-RT** board installed (see below for full device list).  This is *instead* of operating the devices using a MiHome Gateway, so this module does not require an internet connection.
 
-This node module also has an accompanying node-red implementation by the same author **node-red-contrib-energenie-ener314rt**, this is much easier to use than this node module directly!
+This node module also has two accompanying implementations by the same author. One that provides 'nodes' within node-red: [**node-red-contrib-energenie-ener314rt**](https://github.com/Achronite/node-red-contrib-energenie-ener314rt), and another that provides an MQTT interface to control and monitor the devices: [**mqtt-energenie-ener314rt**](https://github.com/Achronite/mqtt-energenie-ener314rt).  Both of these implementation are easier to use than this node module directly, but it's up to you!
 
 The number of individual devices this module can control is over 4 million, so it should be suitable for most installations!
 

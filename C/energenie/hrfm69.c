@@ -18,6 +18,7 @@
 #include "spi.h"
 #include "trace.h"
 #include "gpio.h"
+#include "../achronite/leds.h"
 
 /* globals*/
 static volatile bool _spi_hw_driver = false;
@@ -31,18 +32,23 @@ int HRF_spi_init(void){
     int ret;
     uint8_t spiMode = ( SPI_MODE_0 );
 
-    // Initialise gpio
-    TRACE_OUTS("ener314rt: Initialising gpio\n");
-    ret = gpio_init();
+    // initialise GPIO using gpiod (NOTE: gpiod is NOT used by the software SPI code, it uses the deprecated WiringPi interface)
+    ret = leds_initialise();
 
-    // Try using hardware driver first
     if (ret == 0) {
+        // Try using hardware SPI driver first
         _spi_hw_fd = open("/dev/spidev0.1", O_RDWR);    // use 0.1 for CS LOW
         if (_spi_hw_fd < 0)
         {
             _spi_hw_driver = false;
             printf("ener314rt: Cannot open /dev/spidev0.1 - Fallback to Software SPI driver\n");
-            ret = spi_init_defaults();
+
+            // Initialise wiringPi gpio separately for SPI
+            TRACE_OUTS("ener314rt: Initialising gpio\n");
+            ret = gpio_init();
+            if (ret == 0) {
+                ret = spi_init_defaults();
+            }
         } else {
             _spi_hw_driver = true;
             printf("ener314rt: Hardware driver enabled on /dev/spidev0.1\n");
@@ -59,9 +65,9 @@ int HRF_spi_init(void){
             if (ioctl(_spi_hw_fd, SPI_IOC_WR_MODE, &spiMode) == 0){
                 // Get SPI mode
                 ret = ioctl(_spi_hw_fd, SPI_IOC_RD_MODE, &spiMode);
-#ifdef TRACE
+    #ifdef TRACE
                 printf("Hardware SPI ret=%d,spiMode=%d\n",ret,spiMode);
-#endif
+    #endif
 
                 // Set Word Length    
                 uint8_t spiWordLen = 8;

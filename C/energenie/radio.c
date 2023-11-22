@@ -36,6 +36,7 @@
 #include "gpio.h"
 #include "hrfm69.h"
 #include "trace.h"
+#include "../achronite/leds.h"
 
 /***** CONFIGURATION *****/
 
@@ -50,10 +51,10 @@
 #define RADIO_VAL_PACKETCONFIG1FSKNO 0xA0 // Variable length, Manchester coding
 
 /* GPIO assignments for Raspberry Pi using BCM numbering */
-#define RESET 25
+//#define RESET 25
 // GREEN used for RX, RED used for TX
-#define LED_RX 27 // (not B rev1)
-#define LED_TX 22
+//#define LED_RX 27 // (not B rev1)
+//#define LED_TX 22
 
 /***** LOCAL FUNCTION PROTOTYPES *****/
 static void _change_mode(uint8_t mode);
@@ -136,17 +137,19 @@ static void _change_mode(uint8_t mode)
 {
     HRF_writereg(HRF_ADDR_OPMODE, mode);
     _wait_ready();
-    gpio_low(LED_RX); // RX OFF
-    gpio_low(LED_TX); // TX OFF
+    //gpio_low(LED_RX); // RX OFF
+    //gpio_low(LED_TX); // TX OFF
 
     if (mode == HRF_MODE_TRANSMITTER)
     {
         _wait_txready();
-        gpio_high(LED_TX);  // TX ON
+        //gpio_high(LED_TX);  // TX ON
+        leds_Tx();
     }
     else if (mode == HRF_MODE_RECEIVER)
     {
-        gpio_high(LED_RX);  // RX ON
+        //gpio_high(LED_RX);  // RX ON
+        leds_Rx();
     }
     radio_data.mode = mode;
 }
@@ -182,6 +185,8 @@ static void _wait_txready(void)
 void radio_reset(void)
 {
     // reset radio, flashing both LEDs to show reset
+    leds_reset_board();
+    /*
     gpio_high(LED_RX);
     gpio_high(LED_TX);
     gpio_high(RESET);
@@ -190,6 +195,7 @@ void radio_reset(void)
     delayus(10000);
     gpio_low(LED_RX);
     gpio_low(LED_TX);
+    */
 }
 
 /*---------------------------------------------------------------------------*/
@@ -204,26 +210,32 @@ int radio_init(void)
 
     if (ret == 0)
     {
-        // setup board GPIO pins
-        gpio_setout(RESET);
-        gpio_low(RESET);                // initialise radio reset pin low
-        gpio_setout(LED_TX);
-        gpio_setout(LED_RX);
+        ret = leds_reset_board();
+        if (ret == 0) {
+            // setup board GPIO pins
+            /*
+            gpio_setout(RESET);
+            gpio_low(RESET);                // initialise radio reset pin low
+            gpio_setout(LED_TX);
+            gpio_setout(LED_RX);
 
-        // reset radio adaptor
-        radio_reset();
+            // reset radio adaptor
+            //radio_reset();
+            */
 
-        TRACE_OUTS("radio_ver=");
-        uint8_t rv = radio_get_ver();
-        TRACE_OUTN(rv);
-        TRACE_NL();
-
-        if (rv != EXPECTED_RADIOVER)
-        {
-            TRACE_OUTS("warning:unexpected radio ver=");
+            TRACE_OUTS("radio_ver=");
+            uint8_t rv = radio_get_ver();
             TRACE_OUTN(rv);
             TRACE_NL();
-            return ERR_RADIO_MIN;
+
+            if (rv != EXPECTED_RADIOVER)
+            {
+                TRACE_OUTS("warning:unexpected radio ver=");
+                TRACE_OUTN(rv);
+                TRACE_NL();
+                return ERR_RADIO_MIN;
+            }
+
         }
 
     } else {

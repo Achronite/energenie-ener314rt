@@ -14,7 +14,7 @@
 var switchState = false;
 
 // If you would rather uses the local module build, replace the next line
-var ener314rt = require('energenie-ener314rt'));
+var ener314rt = require('energenie-ener314rt');
 //var path = require('path');
 //var ener314rt = require(path.join(__dirname, 'build/Release/ener314rt'));
 

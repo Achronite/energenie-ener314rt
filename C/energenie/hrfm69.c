@@ -106,7 +106,7 @@ uint8_t _HRF_xfer( uint8_t* txbuf, uint8_t* rxbuf, uint8_t len )
         // Setup transfer params
         xfer.tx_buf        = (uintptr_t)txbuf;
         xfer.rx_buf        = (uintptr_t)rxbuf;
-        xfer.delay_usecs   = 0;
+        xfer.delay_usecs   = 10;         // allow for card to wake up (try and fix rpi5 issue)
         xfer.speed_hz      = 10000000;
         xfer.bits_per_word = 8;
         xfer.len           = len;

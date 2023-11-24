@@ -136,9 +136,10 @@ napi_value nf_send_radio_msg(napi_env env, napi_callback_info info)
     napi_value nv_ret;
     int ret;
     napi_valuetype type_of_argument;
-    unsigned int len, xmits, mod;
+    unsigned int xmits, mod;
     unsigned char *msg;
     bool isBuffer;
+    size_t len = 0;
 
     // get args
     status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);

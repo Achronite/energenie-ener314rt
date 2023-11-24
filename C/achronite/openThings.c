@@ -388,6 +388,17 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     if (crc != crca)
     {
         // CRC does not match
+        #ifdef FULLTRACE
+            TRACE_OUTS("openThings_decode() len=");
+            TRACE_OUTN(length);
+            TRACE_OUTS(", decoded data:");
+            for (int i=0; i<=length; i++ ){
+                TRACE_OUTN(payload[i]);
+                TRACE_OUTC(':');
+            }
+            printf(" crc=%d, crca=%d", crc, crca);
+            TRACE_NL();
+        #endif
         return -2;
     }
     else

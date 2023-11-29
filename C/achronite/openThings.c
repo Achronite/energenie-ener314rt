@@ -166,10 +166,10 @@ void cryptMsg(unsigned char pid, unsigned short pip, unsigned char *msg, unsigne
     unsigned char i;
 
     // old whaleygeek
-    //g_ran = (((pid & 0xFF) << 8) ^ pip);
+    g_ran = (((pid & 0xFF) << 8) ^ pip);
 
     // new from gpbenton
-    g_ran = ((((unsigned short)pid) << 8) ^ pip);
+    //g_ran = ((((unsigned short)pid) << 8) ^ pip);
 
     for (i = 0; i < length; i++)
     {
@@ -396,8 +396,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
                 TRACE_OUTN(payload[i]);
                 TRACE_OUTC(':');
             }
-            printf(" crc=%d, crca=%d", crc, crca);
-            TRACE_NL();
+            printf(" crc=%d, crca=%d, deviceId=%u\n", crc, crca, *iDeviceId);
         #endif
         return -2;
     }

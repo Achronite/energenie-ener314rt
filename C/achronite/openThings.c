@@ -360,8 +360,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
      * which looking at the spec is max 24bits (excluding FLOAT), so 3-17 bytes / record; so max would be 56/3=18 records
      */
 
-    // reproduce issue #25
-    //memcpy(payload, (unsigned char []){13,4,12,51,242,153,243,13,28,61,75,247,30,185},14);
+    // reproduce issue #33
+    //memcpy(payload, (unsigned char []){28,4,2,20,252,97,146,180,94,192,160,222,89,15,199,175,253,53,51,182,70,231,121,124,227,205,125,90,134},29);
+    //memcpy(payload, (unsigned char []){13,4,2,91,7,48,104,172,179,88,183,44,66,242,0},14);
 
     length = payload[0];
 
@@ -398,10 +399,11 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             }
             printf(" crc=%d, crca=%d, deviceId=%u\n", crc, crca, *iDeviceId);
         #endif
-        return -2;
+        //return -2; -- Ignore any CRC failures for now to decode issue #33
     }
-    else
-    {
+
+    //else  -- Ignore any CRC failures for now to decode issue #33
+    //{
         // CRC OK
 
         // find discovered device and check for outstanding cached cmds for it
@@ -524,7 +526,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             // move arrays on
             i += rlen;
             record++;
-        }
+      //  }
     }
 
     //printf("openThings_decode(): returning %d (i=%d)\n",record,i);
@@ -1151,7 +1153,11 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 {
                     // build response JSON
                     sprintf(OTmsg, "{\"deviceId\":%d,\"mfrId\":%d,\"productId\":%d,\"timestamp\":%d", iDeviceId, mfrId, productId, (int)rxMsg.t);
-
+#if defined(FULLTRACE)
+                    TRACE_OUTS("openThings_receive(): hdr: ");
+                    TRACE_OUTS(OTmsg);
+                    TRACE_NL();
+#endif
                     // add records
                     for (i = 0; i < records; i++)
                     {

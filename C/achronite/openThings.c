@@ -397,13 +397,12 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
                 TRACE_OUTN(payload[i]);
                 TRACE_OUTC(':');
             }
-            printf(" crc=%d, crca=%d, deviceId=%u\n", crc, crca, *iDeviceId);
+            printf(" crc:%d, crca:%d, deviceId=%u - CRC FAILED\n", crc, crca, *iDeviceId);
         #endif
-        //return -2; -- Ignore any CRC failures for now to decode issue #33
-    }
-
-    //else  -- Ignore any CRC failures for now to decode issue #33
-    //{
+        return -2;
+        
+    }  else {
+        
         // CRC OK
 
         // find discovered device and check for outstanding cached cmds for it
@@ -526,7 +525,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             // move arrays on
             i += rlen;
             record++;
-      //  }
+        }
     }
 
     //printf("openThings_decode(): returning %d (i=%d)\n",record,i);

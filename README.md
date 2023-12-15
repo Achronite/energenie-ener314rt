@@ -192,20 +192,35 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 |VOLTAGE|Current battery voltage|float|VOLTAGE_TS|
 |VOLTAGE_TS|Tmestamp of when battery voltage was last received|epoch|VOLTAGE_TS|
 
+## Thermostat support
+MiHome thermostat support was added in v0.7.0 and is currently in alpha test.
+
+### Thermostat commands
+
+| Command | # | Description | .data |
+|---|:---:|---|---|
+|CLEAR|0|Cancel current outstanding cached command for the device (set command & retries to 0)||
+|TARGET_TEMP|244|Set new target temperature for thermostat between 5 and 30 C|float|
+|THERMOSTAT_MODE|170|Set operating mode for thermostat, where<br>0=Off, 1=Auto, 2=On|0,1,2|
+
+In order for the Thermostat to provide updates for it's telemetry data without an MiHome gateway, auto messaging has been enabled within this module.  To start this auto-messaging you will need to have a monitor thread running and then subsequently send a `THERMOSTAT_MODE` command to the application.  Each `THERMOSTAT_MODE` value will be stored (until a restart) and will be used to prompt the thermostat into providing it's telemetry data.
+> NOTE: This could have the effect of overriding any mode set by the MiHome gateway / App.
+
 ## Module Build Instructions
 run 'node-gyp rebuild' in this directory to rebuild the node module.
 
 ## Change History
 | Version | Date | Change details
 |---|---|---|
-0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.
-0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)
-0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.
-0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.
-0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.
-0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.
-0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.
-0.6.0|19 Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners since last restart.
+0.3.0|10 Jan 20|First release of this node.js module after being split from node-red-contrib-energenie-ener314rt, and rewritten to use node.js Native API (N-API) for calling C functions.  This version requires node.js v10+ due to the use of N-API threadsafe functions.|
+0.3.2|10 Jan 20|Initialise the radio adaptor automatically if not already done so on first lock call (remove always init call made in 0.3.1)|
+0.3.3|01 Feb 20|Disabled Rx when only OOK devices present. Allow eTRV commands to be cached before valve is detected. Tested Energenie 4-way gang. Improved error handling when radio will not initialise.|
+0.3.4|09 Feb 20|Replaced all exits with return codes from radio init functions. Added better error reporting for raw Tx call.|
+0.4.0|06 Dec 20|Added new function to immediately send commands. Added MIHO069 thermostat params. Added support for unknown commands (this assumes a uint as sent datatype) in build_message. Updated Energenie device names. Readme updates, including success tests for 3 more devices from AdamCMC. WARNING: This version contains DEBUG logging.|
+0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.|
+0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.|
+0.6.0|19 Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners since last restart.|
+0.7.0|Dec 23|Added (alpha) support for raspberry pi 5 (#?)<br>MiHome Thermostat support added|
 
 ## Built With
 

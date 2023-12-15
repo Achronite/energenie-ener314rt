@@ -681,7 +681,7 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
     unsigned char iType = 0x00;
 
 #if defined(TRACE)
-    printf("openThings_build_msg: productId=%d, deviceId=%d, cmd=%d, data=%d cmd=", iProductId, iDeviceId, iCommand, iData);
+    printf("openThings_build_msg: productId=%d, deviceId=%d, data=%d, cmd=(%d) ", iProductId, iDeviceId, iData, iCommand);
 #endif
 
     switch (iCommand)
@@ -1194,6 +1194,11 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             break;
                         case OTR_FLOAT:
                             sprintf(OTrecord, ",\"%s\":%f", OTrecs[i].paramName, OTrecs[i].retFloat);
+                            break;
+                        default:
+                            // The type is unknown or not set, assume INT (for now)
+                            TRACE_OUTS("openThings_receive(): WARNING type unknown assuming INT");
+                            sprintf(OTrecord, ",\"%s\":%d", OTrecs[i].paramName, OTrecs[i].retInt);
                         }
 
                         //add OT record to returned msg
@@ -1213,95 +1218,48 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                         eTRV_get_status(OTdi, OTmsg, buflen);
                         break;
 
-                    case PRODUCTID_MIHO069: // thermostat
-                        // Generally we get either a OTP_WAKEUP or all data from the thermostat
-
-                        if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[OTdi].cache->retries > 0)
-                        {
-                            if (OTrecs[0].paramId == OTP_WAKEUP)
+                    case PRODUCTID_MIHO069: // thermostat                        
+                        if (g_OTdevices[OTdi].cache != NULL) {
+                            // Check if we have a cached command and has it been succesfully processed
+                            if (g_OTdevices[OTdi].cache->retries > 0)
                             {
-                                // On WAKEUP send cached command; this assumes these are sent regularly!
-                                openThings_cache_send(OTdi);
-                            }
-                            else
-                            {
-                                // We need to iterate the Rx records and check the values against targets in cached cmd
-
-                                // Check if the cached command has been succesfully processed
                                 cmdProcessed = false;
-                                switch (g_OTdevices[OTdi].cache->command)
+
+                                for (i = 0; i < records; i++)
                                 {
-                                case OTCP_TEMP_SET:
-                                    // Check TARGET_TEMP
-                                    for (i = 0; i < records; i++)
+                                    if ((g_OTdevices[OTdi].cache->command == OTCP_TEMP_SET) && (OTrecs[i].paramId == OTP_TARGET_TEMP))
                                     {
-                                        if (OTrecs[i].paramId == OTP_TARGET_TEMP)
-                                        {
-                                            if (OTrecs[i].retFloat == (float)g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_SET_THERMOSTAT_MODE:
-                                    // Check THERMOSTAT_MODE
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_THERMOSTAT_MODE)
-                                        {
-                                            if (OTrecs[i].retInt == g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_SWITCH_STATE:
-                                    // Check SWITCH_STATE
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_SWITCH_STATE)
-                                        {
-                                            if (OTrecs[i].retInt == g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_REQUEST_VOLTAGE:
-                                    // Check BATTERY_LEVEL
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_BATTERY_LEVEL)
+                                        if (OTrecs[i].retFloat == (float)g_OTdevices[OTdi].cache->data)
                                         {
                                             cmdProcessed = true;
                                             break;
                                         }
                                     }
-                                    break;
+                                    else if ((g_OTdevices[OTdi].cache->command == OTCP_SET_THERMOSTAT_MODE) && (OTrecs[i].paramId == OTP_THERMOSTAT_MODE))
+                                    {
+                                        if (OTrecs[i].retInt == g_OTdevices[OTdi].cache->data)
+                                        {
+                                            cmdProcessed = true;
+                                            break;
+                                        }
+                                    }
+                                }
 
-                                case OTCP_REQUEST_DIAGNOSTICS:
-                                    // TODO - need example message to progress further
-                                    break;
+                                if (cmdProcessed)
+                                {
+                                    // Cached command processed succesfully, stop retrying Tx
+                                    // TODO: add mutex
+                                    g_OTdevices[OTdi].cache->command = 0;
+                                    g_OTdevices[OTdi].cache->retries = 0;
+                                    _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
                                 }
                             }
 
-                            if (cmdProcessed)
-                            {
-                                // Cached command processed succesfully, stop retrying Tx
-                                // TODO: add mutex
-                                g_OTdevices[OTdi].cache->command = 0;
-                                g_OTdevices[OTdi].cache->retries = 0;
-                                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
-                            }
+                            // return cached command status (even if retries is 0)
+                            sprintf(OTrecord, ",\"command\":%d,\"retries\":%d",
+                                    g_OTdevices[OTdi].cache->command,
+                                    g_OTdevices[OTdi].cache->retries);
+                            strcat(OTmsg, OTrecord);
                         }
                     }
 
@@ -1595,7 +1553,9 @@ void openThings_cache_send(unsigned char index)
         msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
         if (msglen > 1)
         {
-            TRACE_OUTS("openThings_cache_send(): sending cached msg\n");
+            TRACE_OUTS("openThings_cache_send(): sending cached msg for device ");
+            TRACE_OUTN(g_OTdevices[index].deviceId);
+            TRACE_NL();
             // we have a cached command, send it
             if ((lock_ener314rt()) == 0)
             {

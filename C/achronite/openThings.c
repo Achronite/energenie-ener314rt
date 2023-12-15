@@ -307,11 +307,25 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
                 g_OTdevices[OTdi].trv->errors = false;
                 g_OTdevices[OTdi].trv->lowPowerMode = false;
             }
+            g_OTdevices[OTdi].thermostat = NULL;
+        }
+        // add extra structure if a thermostat
+        else if (productId == PRODUCTID_MIHO069)
+        {
+            TRACE_OUTS("openThings_devicePut() adding thermostat struct.\n");
+            g_OTdevices[OTdi].thermostat = malloc(sizeof(struct STAT_DEVICE));
+            if (g_OTdevices[OTdi].thermostat != NULL)
+            {
+                // malloc OK, set defaults
+                g_OTdevices[OTdi].thermostat->mode = GATEWAY;
+            }
+            g_OTdevices[OTdi].trv = NULL;
         }
         else
         {
-            // this isnt a trv, so we dont need an extra struct
+            // this isnt special, so we dont need extra structs
             g_OTdevices[OTdi].trv = NULL;
+            g_OTdevices[OTdi].thermostat = NULL;
         }
 
 #if defined(TRACE)
@@ -981,6 +995,17 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
                             g_OTdevices[index].trv->valve = data;
                         }
                     }
+                    // Make a note of thermostat mode for automated replies to WAKEUP to get telemetry data later
+                    else if (g_OTdevices[index].productId == PRODUCTID_MIHO069)
+                    {
+                        g_OTdevices[index].cache->retries = THERMOSTAT_TX_RETRIES; // Rx window is assumed bigger for thermostat
+
+                        if (command == OTCP_SET_THERMOSTAT_MODE)
+                        {
+                            g_OTdevices[index].thermostat->mode = data;
+                            TRACE_OUTS(" thermostat mode stored,");
+                        }
+                    }
                     TRACE_OUTN(g_CachedCmds);
                     TRACE_OUTS(" payload(s) cached, ");
                     TRACE_OUTN(g_PreCachedCmds);
@@ -1252,6 +1277,22 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                                     g_OTdevices[OTdi].cache->command = 0;
                                     g_OTdevices[OTdi].cache->retries = 0;
                                     _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
+                                }
+                            } else {
+                                // No outstanding cached commands...
+                                // Create one for the next thermostat WAKEUP to allow for periodic auto-reporting for the thermostat
+                                // NOTE: We must have already processed a THERMOSTAT_MODE command for this to be enabled
+
+                                if (g_OTdevices[OTdi].thermostat != NULL &&
+                                    g_OTdevices[OTdi].thermostat->mode != GATEWAY && 
+                                    OTrecs[0].paramId == OTP_WAKEUP && 
+                                    OTrecs[i].typeIndex == OTR_INT)
+                                {
+#if defined(TRACE)
+                                    printf("openThings_cache_send(): adding cached command for auto-reporting thermostat_mode=%d\n", g_OTdevices[OTdi].thermostat->mode);
+#endif            
+                                    //ret = openThings_cmd(productId, iDeviceId, OTCP_SET_THERMOSTAT_MODE, g_OTdevices[OTdi].thermostat->mode, 1);
+                                    openThings_cache_cmd(iDeviceId, OTCP_SET_THERMOSTAT_MODE, g_OTdevices[OTdi].thermostat->mode);
                                 }
                             }
 
@@ -1586,11 +1627,7 @@ void openThings_cache_send(unsigned char index)
             }
         }
     }
-    else
-    {
-        // No outstanding cached commands
-        // TO-DO periodic auto-reporting
-    }
+
 }
 
 /*

@@ -215,6 +215,13 @@ struct TRV_DEVICE {
     char errString[MAX_ERRSTR+1];
 };
 
+// Structure for storing data for Thermostat devices
+enum thermostatMode {OFF = 0, AUTO = 1, ON = 2, GATEWAY = 3};
+struct STAT_DEVICE {
+    enum thermostatMode mode;
+};
+#define THERMOSTAT_TX_RETRIES 2
+
 // DeviceList structure
 struct OT_DEVICE {
     unsigned int  deviceId;
@@ -225,6 +232,7 @@ struct OT_DEVICE {
     char          product[15];
     struct CACHED_CMD *cache;                   // need to malloc if used
     struct TRV_DEVICE *trv;                     // need to malloc if used
+    struct STAT_DEVICE *thermostat;             // need to malloc if used
 };
 
 #define MAX_DEVICES 30

@@ -107,7 +107,7 @@ uint8_t _HRF_xfer( uint8_t* txbuf, uint8_t* rxbuf, uint8_t len )
         xfer.tx_buf        = (uintptr_t)txbuf;
         xfer.rx_buf        = (uintptr_t)rxbuf;
         xfer.delay_usecs   = 10;         // allow for card to wake up (try and fix rpi5 issue)
-        xfer.speed_hz      = 10000000;
+        xfer.speed_hz      = 9000000;   // 10MHz does not work on pi5 (so dropped to 9MHz)
         xfer.bits_per_word = 8;
         xfer.len           = len;
         xfer.cs_change     = 0;
@@ -149,6 +149,8 @@ void HRF_writereg(uint8_t addr, uint8_t data)
     int len = 2;
     uint8_t txbuf[2];
 
+/* Commented out, rarely use this for debug
+
     #if defined(FULLTRACE)        
         TRACE_OUTS("HRF_writereg(");
         TRACE_OUTN(addr);
@@ -157,6 +159,7 @@ void HRF_writereg(uint8_t addr, uint8_t data)
         TRACE_OUTC(')');
         TRACE_NL();
     #endif
+*/
 
     txbuf[0] = addr | HRF_MASK_WRITE_DATA;
 	txbuf[1] = data;

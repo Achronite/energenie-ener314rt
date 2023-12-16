@@ -1222,7 +1222,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             break;
                         default:
                             // The type is unknown or not set, assume INT (for now)
-                            TRACE_OUTS("openThings_receive(): WARNING type unknown assuming INT");
+                            TRACE_OUTS("openThings_receive(): WARNING type unknown assuming INT\n");
                             sprintf(OTrecord, ",\"%s\":%d", OTrecs[i].paramName, OTrecs[i].retInt);
                         }
 
@@ -1285,8 +1285,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 
                                 if (g_OTdevices[OTdi].thermostat != NULL &&
                                     g_OTdevices[OTdi].thermostat->mode != GATEWAY && 
-                                    OTrecs[0].paramId == OTP_WAKEUP && 
-                                    OTrecs[i].typeIndex == OTR_INT)
+                                    OTrecs[0].paramId == OTP_WAKEUP )
                                 {
 #if defined(TRACE)
                                     printf("openThings_cache_send(): adding cached command for auto-reporting thermostat_mode=%d\n", g_OTdevices[OTdi].thermostat->mode);

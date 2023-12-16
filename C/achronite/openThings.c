@@ -1222,7 +1222,9 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             break;
                         default:
                             // The type is unknown or not set, assume INT (for now)
-                            TRACE_OUTS("openThings_receive(): WARNING type unknown assuming INT\n");
+#if defined(TRACE)
+                            printf("openThings_receive(): WARNING type:%d unknown assuming INT. str:%s,int:%d,float:%f\n", OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
+#endif
                             sprintf(OTrecord, ",\"%s\":%d", OTrecs[i].paramName, OTrecs[i].retInt);
                         }
 

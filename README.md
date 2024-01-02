@@ -204,7 +204,7 @@ MiHome thermostat support was added in v0.7.0 and is currently in alpha test.
 |THERMOSTAT_MODE|170|Set operating mode for thermostat, where<br>0=Off, 1=Auto, 2=On|0,1,2|
 
 In order for the Thermostat to provide updates for it's telemetry data without an MiHome gateway, auto messaging has been enabled within this module.  To start this auto-messaging you will need to have a monitor thread running and then subsequently send a `THERMOSTAT_MODE` command to the application.  Each `THERMOSTAT_MODE` value will be stored (until a restart) and will be used to prompt the thermostat into providing it's telemetry data.
-> NOTE: This could have the effect of overriding any mode set by the MiHome gateway / App.
+> NOTE: If you are controlling/setting the Thermostat using a MiHome gateway/app you should NOT issue commands via this module as the commands will clash/override each other.
 
 ## Module Build Instructions
 run 'node-gyp rebuild' in this directory to rebuild the node module.
@@ -220,7 +220,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.|
 0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.|
 0.6.0|19 Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners since last restart.|
-0.7.0|Dec 23|Added (alpha) support for raspberry pi 5 (#?)<br>MiHome Thermostat support added|
+0.7.0|Jan 24|Added (alpha) support for raspberry pi 5 (Issue #33)<br>MiHome Thermostat support added|Switched to gpiod from unsupported WiringPi for LEDs and RESET<br>Created example app for MIHO005|Fixed ookSwitch returning non-zero when records in buffer (Issue #32)
 
 ## Built With
 
@@ -244,4 +244,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - January 2023 - v0.6.0 Beta
+@Achronite - January 2024 - v0.7.0 Beta

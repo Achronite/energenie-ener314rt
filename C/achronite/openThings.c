@@ -633,8 +633,9 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
     }
     else
     {
-        ret = empty_radio_Rx_buffer(DT_CONTROL);
-        //printf("openThings_switch(%d): Rx_Buffer ", ret);
+        // #32 - Do not return the record count
+        empty_radio_Rx_buffer(DT_CONTROL);
+        //printf("openThings_switch(%d): Rx_Buffer ", recs);
 
         /*
         ** Stage 3: Transmit via radio adaptor, using mutex to block the radio

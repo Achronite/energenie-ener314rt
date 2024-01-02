@@ -174,10 +174,10 @@ void close_ener314rt(void)
 /*
 ** empty_radio_Rx_buffer() - empties the radio receive buffer of any messages into RxMsgs as quickly as possible
 **
-** Need to mutex lock before calling
+** Need to mutex lock before calling this function
 ** Leave the radio in receive mode if monitoring, as this could have been the first time we have been called
 **
-** returns the # of messages read, -1 if error getting lock
+** returns the # of messages read
 **
 ** TODO: Buffer is currently cyclic and destructive, we could lose messages, but I've made the assumption we always need
 **       the latest messages

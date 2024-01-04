@@ -587,15 +587,11 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid xmits");
         }
-#ifdef TRACE
-        printf("calling openThings_cmd(%d,%d,%d,%d,%d)\n", iProductId, iDeviceId, iCommand, iData, xmits);
-#endif
+        //printf("calling openThings_cmd(%d,%d,%d,%d,%d)\n", iProductId, iDeviceId, iCommand, iData, xmits);
         // Call C routine
         ret = openThings_cmd(iProductId, iDeviceId, iCommand, iData, xmits);
 
-#ifdef TRACE
-        printf("openThings_cmd() returned %d\n", ret);
-#endif
+        //printf("openThings_cmd() returned %d\n", ret);
     }
 
     // convert return value into JS value
@@ -611,25 +607,27 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
 
 
 /* N-API function (nf_) wrapper 'openThingsCacheCmd' for:
-**  unsigned char openThings_cache_cmd(unsigned int iDeviceId, uint8_t command, uint32_t data)
+**  unsigned char openThings_cache_cmd(unsigned int iDeviceId, uint8_t command, uint32_t data, uint8_t retries)
 **
 ** Input params from JS:
 **  0: iDeviceId
 **  1: command
 **  2: data  (set to 0 if unused)
+**  3: retries
 */
 napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
 {
     napi_status status;
-    size_t argc = 3; // passed in args
-    napi_value argv[3];
+    size_t argc = 5; // passed in args
+    napi_value argv[5];
     napi_value nv_ret;
     int ret = -10;
     napi_valuetype type_of_argument;
 
-    unsigned int iDeviceId;
+    unsigned int iProductId, iDeviceId;
     uint32_t command;
     uint32_t data;
+    uint32_t retries;
 
     // get args
     status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -642,50 +640,78 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
     else
     {
         // Parse all the arguments, all need to be valid to proceed
-        // 0: unsigned int iDeviceId
+        // 0: unsigned char iProductId
         status = napi_typeof(env, argv[0], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "ProductId not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[0], &iProductId);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid ProductId");
+        }
+
+        // 1: unsigned int iDeviceId
+        status = napi_typeof(env, argv[1], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {
             napi_throw_type_error(env, NULL, "DeviceId not number");
         }
         else
         {
-            status = napi_get_value_uint32(env, argv[0], &iDeviceId);
+            status = napi_get_value_uint32(env, argv[1], &iDeviceId);
 
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid DeviceId");
         }
 
-        // 1: uint8_t command
-        status = napi_typeof(env, argv[1], &type_of_argument);
+        // 2: uint8_t command
+        status = napi_typeof(env, argv[2], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {
             napi_throw_type_error(env, NULL, "command not number");
         }
         else
         {
-            status = napi_get_value_uint32(env, argv[1], &command);
+            status = napi_get_value_uint32(env, argv[2], &command);
 
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid command");
         }
 
-        // 2: uint32_t data                                                     TODO: Allow for optional data
-        status = napi_typeof(env, argv[2], &type_of_argument);
+        // 3: uint32_t data                                                     TODO: Allow for optional data
+        status = napi_typeof(env, argv[3], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {
             napi_throw_type_error(env, NULL, "data not number");
         }
         else
         {
-            status = napi_get_value_uint32(env, argv[2], &data);
+            status = napi_get_value_uint32(env, argv[3], &data);
 
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid data");
         }
 
+        // 4: uint32_t retries
+        status = napi_typeof(env, argv[4], &type_of_argument);
+        if (status != napi_ok || type_of_argument != napi_number)
+        {
+            napi_throw_type_error(env, NULL, "retries not number");
+        }
+        else
+        {
+            status = napi_get_value_uint32(env, argv[4], &retries);
+
+            if (status != napi_ok)
+                napi_throw_error(env, NULL, "Invalid retries");
+        }
+
         // Call C routine
-        ret = openThings_cache_cmd(iDeviceId, command, data);
+        ret = openThings_cache_cmd(iProductId, iDeviceId, command, data, retries);
     }
 
     // convert return value into JS value

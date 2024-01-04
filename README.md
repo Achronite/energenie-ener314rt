@@ -34,7 +34,7 @@ These functions are exposed by this module:
 |openThingsReceive|Get single message|timeout|json|nf_openThings_receive
 |openThingsReceiveThread|Start Receive Thread|timeout, callback|via cb|tf_openThings_receive_thread
 |openThingsCmd|Send an OpenThings command immediately|productId, deviceId, command, data, xmits||nf_openThings_cmd
-|openThingsCacheCmd*|Cache an eTRV Command|deviceId, command, data||nf_openThings_cache_cmd
+|openThingsCacheCmd*|Cache an eTRV Command|productId, deviceId, command, data, retries||nf_openThings_cache_cmd
 |stopMonitoring*|Stop Receive Thread|||nf_stop_openThings_receive_thread
 |ookSwitch|Switch an OOK device|zone, switchNum, switchState, xmits||nf_ook_switch
 |sendRadioMsg|Send raw payload|modulation, xmits, buffer||nf_send_radio_msg
@@ -86,7 +86,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |MIHO026|MiHome Light Switch (Steel)|ookSwitch|||
 |MIHO032|MiHome Motion sensor||openThingsReceiveThread|x|
 |MIHO033|MiHome Open Sensor||openThingsReceiveThread|x|
-|MIHO069|MiHome Heating Thermostat|openThingsCacheCmd|openThingsReceiveThread|| 
+|MIHO069|MiHome Heating Thermostat|openThingsCacheCmd|openThingsReceiveThread|x| 
 |MIHO089|MiHome Click - Smart Button||openThingsReceiveThread||
 
 
@@ -200,7 +200,7 @@ MiHome thermostat support was added in v0.7.0 and is currently in alpha test.
 | Command | # | Description | .data |
 |---|:---:|---|---|
 |CLEAR|0|Cancel current outstanding cached command for the device (set command & retries to 0)||
-|TARGET_TEMP|244|Set new target temperature for thermostat between 5 and 30 C|float|
+|TARGET_TEMP|244|Set new target temperature for thermostat between 5 and 30 C in 0.5 increments|float|
 |THERMOSTAT_MODE|170|Set operating mode for thermostat, where<br>0=Off, 1=Auto, 2=On|0,1,2|
 
 In order for the Thermostat to provide updates for it's telemetry data without an MiHome gateway, auto messaging has been enabled within this module.  To start this auto-messaging you will need to have a monitor thread running and then subsequently send a `THERMOSTAT_MODE` command to the application.  Each `THERMOSTAT_MODE` value will be stored (until a restart) and will be used to prompt the thermostat into providing it's telemetry data.
@@ -220,7 +220,7 @@ run 'node-gyp rebuild' in this directory to rebuild the node module.
 0.4.1|19 Feb 21|Reduced internal efficiency 'sleep' from 5s to 0.5s (for non-eTRV send mode) to reduce risk of losing a message (Issue #14). Fix crash when using over 6 devices (Issue #15). Disabled DEBUG logging in npm package.|
 0.5.0|19 Apr 22|Prevent non-cachable devices using openThings_cache_cmd() (Issue #18). Switched device type of MIHO069 thermostat to cacheable. Add code to stop Tx retries for thermostat by checking returned values against the type of cached command (Issue #19). Increased error prevention for all malloc'ed structures.|
 0.6.0|19 Jan 23|Fixed multiple command caching issue (#24).<br>Hardware driver support added using spidev (Issue #5), which falls back to software driver if unavailable.<br>Extensive rewrite of all communication with adaptor for hardware and software mode.<br>Fixed buffer overflow issue on Ubuntu (Issue #25).<br>Renamed TARGET_C to TARGET_TEMP for eTRV (Issue #20).<br>Add capability for cached/pre-cached commands to be cleared with command=0 (Issue #27).<br>Updated 'joined' flag to only show new joiners since last restart.|
-0.7.0|Jan 24|Added (alpha) support for raspberry pi 5 (Issue #33)<br>MiHome Thermostat support added|Switched to gpiod from unsupported WiringPi for LEDs and RESET<br>Created example app for MIHO005|Fixed ookSwitch returning non-zero when records in buffer (Issue #32)
+0.7.0|Jan 24|Added (alpha) support for raspberry pi 5 (Issue #33)<br>MiHome Thermostat support added<br>Switched to gpiod from unsupported WiringPi for LEDs and RESET<br>Created example app for MIHO005<br>Fixed ookSwitch returning non-zero when records in buffer (Issue #32)<br>*BREAKING* Added productId (Issue #35) and retries parameters to openThingsCacheCmd<br>Requesting a cached command overwrites the existing command for a device
 
 ## Built With
 

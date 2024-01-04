@@ -219,8 +219,10 @@ struct TRV_DEVICE {
 enum thermostatMode {OFF = 0, AUTO = 1, ON = 2, GATEWAY = 3};
 struct STAT_DEVICE {
     enum thermostatMode mode;
+    time_t telemetryDate;
 };
 #define THERMOSTAT_TX_RETRIES 2
+#define THERMOSTAT_AUTO_TELEMETRY_TIME 300  // every 5 minutes
 
 // DeviceList structure
 struct OT_DEVICE {
@@ -255,7 +257,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout);
 int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits);
 void openthings_scan(int iTimeOut);
 
-int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
+int openThings_cache_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char retries);
 void openThings_cache_send(unsigned char index);
 int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime);

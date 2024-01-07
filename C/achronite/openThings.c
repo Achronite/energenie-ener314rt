@@ -535,7 +535,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             }
             else
             {
-                TRACE_OUTS("rlen=0\n");
+#ifdef TRACE
+                printf("openThings_decode(): empty message received for device %u:%d\n", *productId, *iDeviceId);
+#endif
                 recs[record].retInt = 0;
             }
 

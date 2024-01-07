@@ -15,7 +15,7 @@
 
 // uncomment next line to enable trace debug, and the line after for even more debug
 #define TRACE_POSIX
-//#define FULLTRACE
+#define FULLTRACE
 
 /* POSIX IMPLEMENTATION */
 /* Printf is not available on some platforms, or not very efficient.

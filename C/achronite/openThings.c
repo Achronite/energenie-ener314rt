@@ -378,6 +378,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     // reproduce issue #33
     // memcpy(payload, (unsigned char []){28,4,2,20,252,97,146,180,94,192,160,222,89,15,199,175,253,53,51,182,70,231,121,124,227,205,125,90,134},29);
     // memcpy(payload, (unsigned char []){13,4,2,91,7,48,104,172,179,88,183,44,66,242,0},14);
+    //memcpy(payload, (unsigned char []){14,4,18,10,131,19,68,104,131,132,112,212,159,153,11,84,72,10,166},15);
 
     length = payload[0];
 
@@ -445,11 +446,15 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
 
             // PARAM
             param = payload[i++];
-            recs[record].wr = ((param & 0x80) == 0x80);
-            recs[record].paramId = param & 0x7F;
+            //recs[record].wr = ((param & 0x80) == 0x80);
+            //recs[record].paramId = param & 0x7F;
+            recs[record].paramId = param;
+            recs[record].cmd = (param & 0x80);
 
-            // lookup the parameter name in the known parameters table
-            int paramIndex = openThings_getParamIndex(recs[record].paramId);
+
+
+            // lookup the parameter name in the known parameters table (commands are converted to responses)
+            int paramIndex = openThings_getParamIndex(recs[record].paramId & 0x7F);
             if (paramIndex != 0)
             {
                 strncpy(recs[record].paramName, OTparams[paramIndex].paramName, OT_PARAM_NAME_LEN);
@@ -836,7 +841,7 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
     radio_msg[msglen - 2] = ((crc >> 8) & 0xFF); // MSB
     radio_msg[msglen - 1] = (crc & 0xFF);        // LSB
 
-#if defined(TRACE)
+#if defined(FULLTRACE)
     TRACE_OUTS("Built payload (unencrypted): ");
     for (int i = 0; i < msglen; i++)
     {
@@ -848,16 +853,6 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 
     // Stage 1d: encrypt body part of message
     cryptMsg(CRYPT_PID, pip, &radio_msg[5], (msglen - 5));
-
-#if defined(TRACE)
-    TRACE_OUTS("Built payload (encrypted): ");
-    for (int i = 0; i < msglen; i++)
-    {
-        TRACE_OUTN(radio_msg[i]);
-        TRACE_OUTC(',');
-    }
-    TRACE_NL();
-#endif
 
     return ret;
 }
@@ -1148,7 +1143,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 #if defined(FULLTRACE)
                         TRACE_OUTS("openThings_receive(): rec:");
                         TRACE_OUTN(i);
-                        sprintf(OTrecord, " {\"name\":\"%s\",\"id\":%d,\"type\":%d,\"str\":\"%s\",\"int\":%d,\"float\":%f}\n", OTrecs[i].paramName, OTrecs[i].paramId, OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
+                        sprintf(OTrecord, " {\"name\":\"%s\",\"id\":%d(%s),\"datatype\":%d,\"str\":\"%s\",\"int\":%d,\"float\":%f}\n", OTrecs[i].paramName, OTrecs[i].paramId, OTrecs[i].cmd?"command":"status", OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
                         TRACE_OUTS(OTrecord);
 #endif
                         switch (OTrecs[i].typeIndex)

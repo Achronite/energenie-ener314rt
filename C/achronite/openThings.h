@@ -169,7 +169,7 @@ struct OT_PARAM {
 
 // OpenThings record
 struct OTrecord {
-    unsigned char wr;
+    bool cmd;
     unsigned char paramId;
     char paramName[OT_PARAM_NAME_LEN];
     unsigned char typeId;

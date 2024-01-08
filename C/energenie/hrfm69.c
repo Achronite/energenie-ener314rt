@@ -106,14 +106,14 @@ uint8_t _HRF_xfer( uint8_t* txbuf, uint8_t* rxbuf, uint8_t len )
         // Setup transfer params
         xfer.tx_buf        = (uintptr_t)txbuf;
         xfer.rx_buf        = (uintptr_t)rxbuf;
-        xfer.delay_usecs   = 0;
+        //xfer.delay_usecs   = 0;
         xfer.speed_hz      = 9000000;   // 10MHz does not work on pi5 (so dropped to 9MHz)
         xfer.bits_per_word = 8;
         xfer.len           = len;
-        xfer.cs_change     = 0;
+        //xfer.cs_change     = 0;
 
         // transmit the register to read - this returns length of transmit
-        status = ioctl(_spi_hw_fd, SPI_IOC_MESSAGE(1), &xfer);
+        status = ioctl(_spi_hw_fd, SPI_IOC_MESSAGE(1), &xfer);      // 1 = 1 SPI transfer
 
     } else {
         // software driver
@@ -183,8 +183,8 @@ uint8_t HRF_readreg(uint8_t addr)
     int status = 0;
     int len = 2;
 
-    uint8_t txbuf[len];
-    uint8_t rxbuf[len];
+    uint8_t txbuf[2];
+    uint8_t rxbuf[2] = {0};
 
     txbuf[0] = addr;
 	txbuf[1] = 0;
@@ -264,6 +264,18 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
             } else {
                 buf[0] = 0;
             }
+
+#ifdef TRACE
+            // Check flags, to see if there is anything else...
+            uint8_t ir2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
+            if (ir2 > 0)
+                printf("\nIRQFLAGS2=%d ",ir2);
+#endif
+
+        } else {
+            // unlikely to be an OpenThings message, clear the FIFO
+            TRACE_OUTS("HRF_readfifo_burst_cbp(): Non-OT payload, clearing FIFO\n");
+            HRF_clear_fifo();            
         }
     }
 
@@ -274,7 +286,7 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
         TRACE_OUTS("HRF_readfifo_burst_cbp() len=");
         TRACE_OUTN(status);
         TRACE_OUTS(", data:");
-        for (int i=0; i<=buflen; i++ ){
+        for (int i=0; i<=status; i++ ){
             TRACE_OUTN(buf[i]);
             TRACE_OUTC(':');
         }

@@ -240,6 +240,9 @@ int pop_RxMsg(struct RADIO_MSG *rxMsg)
     if (pRxMsgHead != pRxMsgTail)
     {
         memcpy(rxMsg->msg, RxMsgs[pRxMsgTail].msg, sizeof(rxMsg->msg));
+
+        // null out read message
+        memset(RxMsgs[pRxMsgTail].msg, 0, MAX_FIFO_BUFFER);
         rxMsg->t = RxMsgs[pRxMsgTail].t;
 
         // move tail to next msg in buffer

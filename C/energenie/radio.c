@@ -423,7 +423,9 @@ void radio_send_payload(uint8_t *payload, uint8_t len, uint8_t times)
 bool radio_is_receive_waiting(void)
 {
     uint8_t irqflags2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
-    return (irqflags2 & HRF_MASK_PAYLOADRDY) == HRF_MASK_PAYLOADRDY;
+
+    //return (irqflags2 & HRF_MASK_PAYLOADRDY) == HRF_MASK_PAYLOADRDY;
+    return (irqflags2 & HRF_MASK_PAYLOADRDY);
     /*
     if (_payload_waiting())
     {

@@ -457,7 +457,12 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             int paramIndex = openThings_getParamIndex(recs[record].paramId & 0x7F);
             if (paramIndex != 0)
             {
-                strncpy(recs[record].paramName, OTparams[paramIndex].paramName, OT_PARAM_NAME_LEN);
+                if (recs[record].cmd){
+                    // record is a command from the gateway or another instance 
+                    sprintf(recs[record].paramName, "_%s",  OTparams[paramIndex].paramName);
+                } else {
+                    strncpy(recs[record].paramName, OTparams[paramIndex].paramName, OT_PARAM_NAME_LEN);
+                }
             }
             else
             {
@@ -675,7 +680,7 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 ** ----------------------
 ** x OTCP_SWITCH_STATE              0xF3  Set status of switched device
 ** - OTCP_JOIN                      0xEA  Acknowledge a JOIN request
-** x OTCP_TEMP_SET                  0xF4  Send new target temperature
+** x OTCP_TEMP_SET                  0xF4  Send new target temperature (only works for int)
 ** x OTCP_EXERCISE_VALVE            0xA3  Send exercise valve command to TRV
 ** x OTCP_REQUEST_VOLTAGE           0xE2  Request battery voltage
 ** x OTCP_REQUEST_DIAGNOTICS        0xA6  Request diagnostic flags

@@ -451,8 +451,6 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             recs[record].paramId = param;
             recs[record].cmd = (param & 0x80);
 
-
-
             // lookup the parameter name in the known parameters table (commands are converted to responses)
             int paramIndex = openThings_getParamIndex(recs[record].paramId & 0x7F);
             if (paramIndex != 0)
@@ -546,7 +544,7 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             else
             {
 #ifdef TRACE
-                printf("openThings_decode(): empty message received for device %u:%d\n", *productId, *iDeviceId);
+                printf("openThings_decode(): No data for %s received for device %u:%d\n", recs[record].paramName, *productId, *iDeviceId);
 #endif
                 recs[record].retInt = 0;
             }
@@ -1298,7 +1296,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 // no messages remaining in the buffer
                 // bufferEmpty = true;
             }
-        } while (msgsInRxBuf > 0); // loop until the RxMsg buffer is empty
+        } while (msgsInRxBuf > 0); // loop until the RxMsg buffer is empty - NOTE return quits loops early above anyways
 
         if (timeout > 0)
         {

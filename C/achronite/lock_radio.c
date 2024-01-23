@@ -217,7 +217,7 @@ int empty_radio_Rx_buffer(enum deviceTypes rxMode)
             }
             else
             {
-                TRACE_OUTS("radio_get_payload_XXX(): invalid OT payload\n");
+                TRACE_OUTS("empty_radio_Rx_buffer(): invalid OT payload\n");
                 break;
             }
         }

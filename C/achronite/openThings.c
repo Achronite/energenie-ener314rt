@@ -1804,7 +1804,7 @@ void _update_cachedcmd_count(int delta, bool isCached)
 **  OTCP_SET_VALVE_STATE        A5 165 e   Set TRV valve state (0,1,2)
 **  OTCP_REQUEST_DIAGNOSTICS    A6 166 e   Request diagnostic flags
 **  OTCP_SET_THERMOSTAT_MODE    AA 170 t?   Set mode of Room Thermostat (0,1,2)
-**  OTCP_RELAY_POLARITY         AB 171 t   Set relay priority (of thermostat) (0,1)
+**  OTCP_RELAY_POLARITY         AB 171 t   Set relay polarity (of thermostat) (0,1)
 **  OTCP_HUMID_OFFSET           BA 186 t   Humidity calibration (of thermostat)
 **  OTCP_TEMP_OFFSET            BD 189 t   Temperature calibration (of thermostat)
 **  OTCP_IDENTIFY               BF 191 e   Ask device to perform it's identification routine

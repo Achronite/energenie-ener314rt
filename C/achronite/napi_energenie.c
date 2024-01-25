@@ -502,7 +502,9 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
     int ret;
     napi_valuetype type_of_argument;
 
-    unsigned int iProductId, iDeviceId, iCommand, iData, xmits;
+    unsigned int iProductId, iDeviceId, iCommand, xmits;
+    float fData = 0;
+    double dData = 0;
 
     // get args
     status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -559,7 +561,7 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
                 napi_throw_error(env, NULL, "Invalid Command");
         }
 
-        // 3: unsigned char iData
+        // 3: float fData
         // TODO: Pass other data types
         status = napi_typeof(env, argv[3], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
@@ -568,10 +570,13 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
         }
         else
         {
-            status = napi_get_value_uint32(env, argv[3], &iData);
+            status = napi_get_value_double(env, argv[3], &dData);
 
-            if (status != napi_ok)
+            if (status != napi_ok) {
                 napi_throw_error(env, NULL, "Invalid data");
+            } else {
+                fData = (float)dData;
+            }
         }
 
         // 4: unsigned char xmits
@@ -587,9 +592,8 @@ napi_value nf_openThings_cmd(napi_env env, napi_callback_info info)
             if (status != napi_ok)
                 napi_throw_error(env, NULL, "Invalid xmits");
         }
-        //printf("calling openThings_cmd(%d,%d,%d,%d,%d)\n", iProductId, iDeviceId, iCommand, iData, xmits);
         // Call C routine
-        ret = openThings_cmd(iProductId, iDeviceId, iCommand, iData, xmits);
+        ret = openThings_cmd(iProductId, iDeviceId, iCommand, fData, xmits);
 
         //printf("openThings_cmd() returned %d\n", ret);
     }
@@ -626,8 +630,9 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
 
     unsigned int iProductId, iDeviceId;
     uint32_t command;
-    uint32_t data;
     uint32_t retries;
+    float fData = 0;
+    double dData = 0;
 
     // get args
     status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -682,7 +687,7 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
                 napi_throw_error(env, NULL, "Invalid command");
         }
 
-        // 3: uint32_t data                                                     TODO: Allow for optional data
+        // 3: float data                                                     TODO: Allow for float data Issue #38
         status = napi_typeof(env, argv[3], &type_of_argument);
         if (status != napi_ok || type_of_argument != napi_number)
         {
@@ -690,11 +695,15 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
         }
         else
         {
-            status = napi_get_value_uint32(env, argv[3], &data);
+            status = napi_get_value_double(env, argv[3], &dData);
 
-            if (status != napi_ok)
+            if (status != napi_ok) {
                 napi_throw_error(env, NULL, "Invalid data");
+            } else {
+                fData = (float)dData;
+            }
         }
+
 
         // 4: uint32_t retries
         status = napi_typeof(env, argv[4], &type_of_argument);
@@ -711,7 +720,7 @@ napi_value nf_openThings_cache_cmd(napi_env env, napi_callback_info info)
         }
 
         // Call C routine
-        ret = openThings_cache_cmd(iProductId, iDeviceId, command, data, retries);
+        ret = openThings_cache_cmd(iProductId, iDeviceId, command, fData, retries);
     }
 
     // convert return value into JS value

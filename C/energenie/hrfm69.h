@@ -59,6 +59,7 @@ typedef struct
 #define HRF_ADDR_PACKETCONFIG1         0x37
 #define HRF_ADDR_PAYLOADLEN            0x38
 #define HRF_ADDR_NODEADDRESS           0x39
+#define HRF_ADDR_AUTOMODES             0x3B
 #define HRF_ADDR_FIFOTHRESH            0x3C
 
 // Masks to set and clear bits
@@ -111,6 +112,36 @@ typedef struct
 #define HRF_VAL_PAYLOADLEN66           66	// max Length in RX, not used in Tx
 #define HRF_VAL_FIFOTHRESH1            0x81	// Condition to start packet transmission: at least one byte in FIFO
 #define HRF_VAL_FIFOTHRESH30           0x1E	// Condition to start packet transmission: wait for 30 bytes in FIFO
+#define HRF_VAL_AUTORX                 0x85 // see below                 
+
+/* RegAutoModes (0x3B)
+Automatic reception (AutoRx) :
+  Mode = Rx, IntermediateMode = Sleep , EnterCondition = Rising edge of PayloadReady, ExitCondition = falling edge of FifoNotEmpty, = 100 001 01 = 0x85
+7-5 EnterCondition rw 000 Interrupt condition for entering the intermediate mode:
+  000 → None (AutoModes Off)
+  001 → Rising edge of FifoNotEmpty
+  010 → Rising edge of FifoLevel
+  011 → Rising edge of CrcOk
+x 100 → Rising edge of PayloadReady
+  101 → Rising edge of SyncAddress
+  110 → Rising edge of PacketSent
+  111 → Falling edge of FifoNotEmpty (i.e. FIFO empty)
+4-2 ExitCondition rw 000 Interrupt condition for exiting the intermediate mode:
+  000 → None (AutoModes Off)
+x 001 → Falling edge of FifoNotEmpty (i.e. FIFO empty)
+  010 → Rising edge of FifoLevel or Timeout
+  011 → Rising edge of CrcOk or Timeout
+  100 → Rising edge of PayloadReady or Timeout
+  101 → Rising edge of SyncAddress or Timeout
+  110 → Rising edge of PacketSent
+  111 → Rising edge of Timeout
+1-0 IntermediateMode rw 00 Intermediate mode:
+  00 → Sleep mode (SLEEP)
+x 01 → Standby mode (STDBY)
+  10 → Receiver mode (RX)
+  11 → Transmitter mode (TX)
+*/
+
 
 void HRF_writereg(uint8_t addr, uint8_t data);
 uint8_t HRF_readreg(uint8_t addr);

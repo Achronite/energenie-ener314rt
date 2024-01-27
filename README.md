@@ -199,7 +199,7 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 |CLEAR|0|Cancel current outstanding cached command for the device (set command & retries to 0)||
 |TARGET_TEMP|244|Set new target temperature for thermostat between 5 and 30 C in 0.5 increments|float|
 |THERMOSTAT_MODE|170|Set operating mode for thermostat, where<br>0=Off, 1=Auto, 2=On|0,1,2|
-|HYSTERISIS|254|The difference between the current temperature and target temperature before the thermostat triggers||
+|HYSTERISIS|254|The difference between the current temperature and target temperature before the thermostat triggers|0.5-10|
 |RELAY_POLARITY|171|Polarity of the boiler relay|0=Normally Open,1=Normally Closed|
 |TEMP_OFFSET|189|Temperature Calibration|-20.0 to 20.0|
 |HUMID_OFFSET|186|Humidity Calibration|-20 to 20|

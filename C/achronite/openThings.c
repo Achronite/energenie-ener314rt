@@ -1957,7 +1957,6 @@ int _openThings_build_record(unsigned char iCommand, float fData, unsigned char 
             reclen = 4;
             fData = fData * (float)256.0;
             iData = (int)fData;
-printf("_openThings_build_record(): 0x12 new fData=%f, iData=%d\n", fData, iData);
             sRecord[2] = (iData >> 8) & 0xFF;
             sRecord[3] = iData & 0xFF;
             break;
@@ -1965,7 +1964,6 @@ printf("_openThings_build_record(): 0x12 new fData=%f, iData=%d\n", fData, iData
             reclen = 4;
             fData = fData * (float)256.0;  // float value multiplied by 256 and sent as 2 bytes; so that fractional part becomes the 2nd byte
             iData = (int)fData;
-printf("_openThings_build_record(): 0x92 new fData=%f, iData=%d\n", fData, iData);
             sRecord[2] = (iData >> 8) & 0xFF;
             sRecord[3] = iData & 0xFF;
             break;

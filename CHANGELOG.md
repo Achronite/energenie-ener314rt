@@ -12,6 +12,7 @@
 * Created example app for MIHO005
 * Support added for MiHome Thermostat (MIHO069), including periodic auto-messaging to get telemetry [#34](https://github.com/Achronite/energenie-ener314rt/issues/34)
 * Data passing to cache_cmd() now supports float values (was integer) [#38](https://github.com/Achronite/energenie-ener314rt/issues/38)
+* A different mechanism of reporting processed commands has been implemented for the thermostat to that used for the eTRV. When (and only when) the thermostat procesess a command it outputs it's telemetry data.  This mechanism has been exploited to assume that the command just sent to the device (upon WAKEUP) has been processed succesfully, upon which the current cached command and it's data value are added to the resulting monitor message.
 
 
 ### Fixed

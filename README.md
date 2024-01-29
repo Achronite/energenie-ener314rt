@@ -207,6 +207,8 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 In order for the Thermostat to provide updates for it's telemetry data without an MiHome gateway, auto messaging has been enabled within this module.  To start this auto-messaging you will need to have a monitor thread running and then subsequently send a `THERMOSTAT_MODE` command to the application.  Each **result** of a `THERMOSTAT_MODE` value will be stored (until a restart) and will be used to prompt the thermostat into providing it's telemetry data.  As the **result** is used, pressing the buttons on the thermostat *should* still work and be reflected as the thermostat will ignore the same command values after a button has been pressed.
 > NOTE: If you are controlling/setting the Thermostat using a MiHome gateway/app you should NOT issue commands via this module as the commands could clash/override each other.
 
+A different mechanism of reporting processed commands has also been implemented for the thermostat in v0.7. When (and only when) the thermostat procesess a command it outputs it's telemetry data.  This mechanism has been used to assume that the command just sent to the device (upon WAKEUP) has been processed succesfully so the command and it's data value are added to the resulting telemetry message.
+
 ## Module Build Instructions
 run 'node-gyp rebuild' in this directory to rebuild the node module.
 

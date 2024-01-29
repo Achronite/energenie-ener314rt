@@ -24,7 +24,7 @@
 ** To WRITE/Command any of these add 128 (0x80) to set bit 7
 */
 #define OT_PARAM_NAME_LEN 16    // 15 + null termination (Fixes #25)
-#define NUM_OT_PARAMS 52
+#define NUM_OT_PARAMS 56
 struct OT_PARAM {
   char paramName[OT_PARAM_NAME_LEN];
   char paramId;

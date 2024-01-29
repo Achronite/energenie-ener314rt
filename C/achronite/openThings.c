@@ -35,7 +35,10 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"DIAGNOSTICS", 0x26},
     {"ALARM", 0x21},
     {"THERMOSTAT_MODE", 0x2A}, // for Thermostat
+    {"RELAY_POLARITY",0x2B},
     {"DEBUG_OUTPUT", 0x2D},
+    {"HUMID_OFFSET",0x3A},
+    {"TEMP_OFFSET",0x3D},
     {"IDENTIFY", 0x3F},
     {"SOURCE_SELECTOR", 0x40}, // write only
     {"WATER_DETECTOR", 0x41},
@@ -52,7 +55,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"RAINFALL", 0x4D},
     {"APPARENT_POWER", 0x50},
     {"POWER_FACTOR", 0x51},
-    {"REPORT_PERIOD", 0x52},
+    {"REPORT_PERIOD", 0x52},    // aka REPORTING_INTERVAL
     {"SMOKE_DETECTOR", 0x53},
     {"TIME_AND_DATE", 0x54},
     {"VIBRATION", 0x56},
@@ -74,7 +77,9 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"ROTATION_SPEED", 0x72},
     {"WATER_FLOW_RATE", 0x77},
     {"WATER_PRESSURE", 0x78},
+    {"HYSTERESIS",0x7E},
     {"TEST", 0xAA}};
+
 
 // OpenThings FSK products (known)  [{mfrId, productId, control (0=no, 1=yes, 2=cached), product}]
 static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
@@ -1144,6 +1149,29 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                                     // Cached command has been processed, stop retrying Tx
                                     // NOTE: This should preserve any button presses made on the device as it will ignore the last command
                                     // TODO: add mutex
+
+                                    // Add the processed command for the parameters that are never returned by the Thermostat
+                                    switch (g_OTdevices[OTdi].cache->command){
+                                        case OTCP_HYSTERESIS:
+                                        case OTCP_HUMID_OFFSET:
+                                        case OTCP_RELAY_POLARITY:
+                                        case OTCP_SET_THERMOSTAT_MODE:
+                                        case OTCP_TEMP_OFFSET:
+                                            // Assume (as we could have a gateway) that a non-returned command was processed
+                                            // Return the value processed
+
+                                            // lookup the parameter name in the known parameters table (commands are converted to responses)
+                                            i = openThings_getParamIndex(g_OTdevices[OTdi].cache->command & 0x7F);                                              
+                                            if (i != 0)
+                                            {
+#ifdef TRACE
+                                                printf("openThings_receive(): rec:+ command %s (%d) assumed processed\n",OTparams[i].paramName,g_OTdevices[OTdi].cache->command);
+#endif
+                                                sprintf(OTrecord, ",\"%s\":%g",OTparams[i].paramName, g_OTdevices[OTdi].cache->data);
+                                                strcat(OTmsg, OTrecord);
+                                            }
+                                    }
+
                                     g_OTdevices[OTdi].cache->command = 0;
                                     g_OTdevices[OTdi].cache->retries = 0;
                                     _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
@@ -1151,6 +1179,8 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 #ifdef TRACE
                                     printf("openThings_receive(): stored time %ld %ld\n", g_OTdevices[OTdi].thermostat->telemetryDate, rxMsg.t);
 #endif
+
+
                                 }
                             }
                             else

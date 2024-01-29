@@ -146,7 +146,7 @@ Single commands should be sent using the ``openThingsCacheCmd`` function, using 
 |IDENTIFY|191|Identify the device by making the green light flash on the selected eTRV for 60 seconds||No|
 |SET_REPORTING_INTERVAL|210|Update reporting interval to requested value|300-3600 seconds|No|
 |REQUEST_VOLTAGE|226|Report current voltage of the batteries||VOLTAGE|
-|TEMP_SET|244|Send new target temperature for eTRV.<br>NOTE: The VALVE_STATE must be set to 'Auto' for this to work.|int|No|
+|TARGET_TEMP|244|Send new target temperature for eTRV.<br>NOTE: The VALVE_STATE must be set to 'Auto' for this to work.|float|No|
 
 > \* Although this will not auto-report, a subsequent call to *REQUEST_DIAGNOTICS* will confirm the *LOW_POWER_MODE* setting
 
@@ -185,7 +185,7 @@ To support the MiHome Radiator Valve (MIHO013) aka **'eTRV'** in v0.3 and above,
 |ERROR_TEXT|error information|string|DIAGNOSTIC_TS|
 |EXERCISE_VALVE|The result of the *EXERCISE_VALVE* command| success or fail|DIAGNOSTIC_TS|
 |LOW_POWER_MODE|eTRV is in low power mode state>|boolean|DIAGNOSTIC_TS|
-|TARGET_TEMP|Target temperature in celcius|int||
+|TARGET_TEMP|Target temperature in celcius|float||
 |TEMPERATURE|The current temperature in celcius|float|timestamp|
 |VALVE_STATE|Current valve mode/state| open, closed, auto, error|VALVE_STATE command *or* DIAGNOSTIC_TS on error|
 |VALVE_TS|timestamp of when last *EXERCISE_VALVE* took place|epoch|DIAGNOSTIC_TS|

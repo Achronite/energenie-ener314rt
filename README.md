@@ -49,7 +49,9 @@ These functions are exposed by this module:
 
 2) Include this module in your node.js code using ```require('energenie-ener314rt');```
 
-3) Use the code in the 'Examples' folder to build your node.js solution.  There are 2 examples:
+3) Install `node.js`, `npm`, `gpiod` and `libgpiod` code dependencies.
+
+4) Use the code in the 'Examples' folder to build your node.js solution.  There are 2 examples:
     * ``app.js``: Basic node.js program that uses a number of core functions, including switching Control only sockets and using the Monitor Thread to output messages from all OpenThings 'Monitor' devices.
     * ``parent.js``: An experimental node that forks a separate node instance to run the ``child.js`` code, and uses stdin/stdout messages between the ``parent`` and ``child`` programs.
 
@@ -238,4 +240,4 @@ Future work is detailed on the [github issues page](https://github.com/Achronite
 https://github.com/Achronite/energenie-ener314rt/issues
 
 
-@Achronite - January 2024
+@Achronite - February 2024

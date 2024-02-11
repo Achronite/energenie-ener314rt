@@ -85,7 +85,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
 static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x00, 1, "Unknown"},
     {4, 0x01, 0, "Monitor Plug"},
-    {4, 0x02, 1, "Adapter Plus"},
+    {4, 0x02, 1, "Smart Plug+"},
     {4, 0x03, 2, "Radiator Valve"},
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},

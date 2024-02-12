@@ -490,7 +490,8 @@ void radio_finished(void)
     TRACE_OUTS("radio_finished\n");
     //spi_finished();
     radio_standby();
-    gpio_finished();
+    leds_reset_board();
+    leds_close();
 
     // clear globals
     radio_data.modu = 99;

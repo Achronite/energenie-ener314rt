@@ -153,3 +153,12 @@ int leds_reset_board()
     return ret;
     
 }
+
+void leds_close()
+{
+    // Close GPIO chip (gpiod)
+    if (chip)
+    {
+        gpiod_chip_close(chip);
+    }
+}

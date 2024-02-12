@@ -26,3 +26,4 @@ int leds_initialise();
 int leds_Tx();
 int leds_Rx();
 int leds_reset_board();
+void leds_close();

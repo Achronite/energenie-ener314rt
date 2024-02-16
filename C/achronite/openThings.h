@@ -249,7 +249,7 @@ struct OT_PRODUCT {
     unsigned char control;
     char          product[15];
 };
-#define NUM_OT_PRODUCTS 8
+#define NUM_OT_PRODUCTS 9
 
 
 /***** FUNCTION PROTOTYPES *****/

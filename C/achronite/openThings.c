@@ -53,6 +53,7 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"TARGET_TEMP", 0x4B}, // for Thermostat
     {"LEVEL", 0x4C},
     {"RAINFALL", 0x4D},
+    {"BUTTON", 0x4F}, // MiHome Click
     {"APPARENT_POWER", 0x50},
     {"POWER_FACTOR", 0x51},
     {"REPORT_PERIOD", 0x52},    // aka REPORTING_INTERVAL
@@ -90,7 +91,8 @@ static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},
     {4, 0x0D, 0, "Open Sensor"},
-    {4, 0x12, 2, "Thermostat"} // ProductId provided by @red-kooga. @imgrant confirmed it is a cached device
+    {4, 0x12, 2, "Thermostat"},
+    {4, 0x13, 0, "Click"}
 };
 
 // Globals - yuck

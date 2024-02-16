@@ -89,7 +89,7 @@ I've tested the nodes with all devices that I currently own.  Here is a table sh
 |MIHO032|MiHome Motion sensor||openThingsReceiveThread|x|
 |MIHO033|MiHome Open Sensor||openThingsReceiveThread|x|
 |MIHO069|MiHome Heating Thermostat|openThingsCacheCmd|openThingsReceiveThread|x| 
-|MIHO089|MiHome Click - Smart Button||openThingsReceiveThread||
+|MIHO089|MiHome Click - Smart Button||openThingsReceiveThread|x|
 
 
 ## 'Control Only' OOK Zone Rules

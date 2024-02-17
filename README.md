@@ -22,6 +22,12 @@ The number of individual devices this module can control is over 4 million, so i
 
 >NOTE: This module does not currently support the older boards (ENER314/Pi-Mote), the Energenie Wifi sockets or the MiHome Gateway.
 
+## IMPORTANT: UPGRADING FROM PREVIOUS RELEASE
+
+**v0.7.x requires additional software dependencies that must be manually installed first.**
+
+If you are upgrading from version 0.6.x or below, please ensure that you install node.js v18.2+, `gpiod` and `libgpiod` first.
+
 
 ## Node exposed functions
 These functions are exposed by this module:

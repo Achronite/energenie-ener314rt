@@ -79,8 +79,8 @@ static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG2},             // Size of the Synch word = 2 (SyncSize + 1)
     {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
     {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
-    {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
-    //{HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSK}, // Variable length, Manchester coding, NodeAddress filtering
+    //{HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
+    {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSK}, // Variable length, Manchester coding, NodeAddress filtering
     {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66},            // max Length in RX, not used in Tx
     {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
 //    {HRF_ADDR_OPMODE, 		HRF_MODE_RECEIVER},			// RE-ADD - Operating mode to Receiver
@@ -189,16 +189,6 @@ void radio_reset(void)
 {
     // reset radio, flashing both LEDs to show reset
     leds_reset_board();
-    /*
-    gpio_high(LED_RX);
-    gpio_high(LED_TX);
-    gpio_high(RESET);
-    delayms(150);
-    gpio_low(RESET);
-    delayus(10000);
-    gpio_low(LED_RX);
-    gpio_low(LED_TX);
-    */
 }
 
 /*---------------------------------------------------------------------------*/
@@ -215,17 +205,6 @@ int radio_init(void)
     {
         ret = leds_reset_board();
         if (ret == 0) {
-            // setup board GPIO pins
-            /*
-            gpio_setout(RESET);
-            gpio_low(RESET);                // initialise radio reset pin low
-            gpio_setout(LED_TX);
-            gpio_setout(LED_RX);
-
-            // reset radio adaptor
-            //radio_reset();
-            */
-
             TRACE_OUTS("radio_ver=");
             uint8_t rv = radio_get_ver();
             TRACE_OUTN(rv);

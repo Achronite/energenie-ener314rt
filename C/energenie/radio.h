@@ -22,6 +22,7 @@ typedef uint8_t RADIO_RESULT;
 typedef uint8_t RADIO_MODULATION;
 #define RADIO_MODULATION_OOK 0
 #define RADIO_MODULATION_FSK 1
+#define RADIO_UNKNOWN        99
 
 typedef uint8_t RADIO_MODE;
 

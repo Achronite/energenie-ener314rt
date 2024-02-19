@@ -103,7 +103,6 @@ static HRF_CONFIG_REC config_OOK[] = {
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG0},        // Size of sync word (disabled)
     {HRF_ADDR_PACKETCONFIG1, 0x80},                    // Tx Variable length, no Manchester coding
     {HRF_ADDR_PAYLOADLEN, 0}                           // no payload length
-
 };
 #define CONFIG_OOK_COUNT (sizeof(config_OOK) / sizeof(HRF_CONFIG_REC))
 
@@ -117,7 +116,7 @@ typedef struct
     RADIO_MODE mode;
 } RADIO_DATA;
 
-RADIO_DATA radio_data;
+RADIO_DATA radio_data = {RADIO_UNKNOWN,RADIO_UNKNOWN};
 
 /***** PRIVATE ***************************************************************/
 
@@ -153,6 +152,8 @@ static void _change_mode(uint8_t mode)
     {
         //gpio_high(LED_RX);  // RX ON
         leds_Rx();
+    } else {
+        leds_standby();
     }
     radio_data.mode = mode;
 }
@@ -473,8 +474,8 @@ void radio_finished(void)
     leds_close();
 
     // clear globals
-    radio_data.modu = 99;
-    radio_data.mode = 99;
+    radio_data.modu = RADIO_UNKNOWN;
+    radio_data.mode = RADIO_UNKNOWN;
 }
 
 /* @Achronite - March 2019, January 2020

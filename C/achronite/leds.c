@@ -113,6 +113,24 @@ int leds_Rx()
     return ret;    
 }
 
+int leds_standby()
+{
+    // switches off the Rx and Tx LEDs
+    int ret = 0;
+
+    ret = gpiod_line_set_value(lineTxLED, 0);
+	if (ret >= 0) {
+        ret = gpiod_line_set_value(lineRxLED, 0);
+	    if (ret < 0) {
+            perror("leds_standby(): Set line value Rx failed\n");
+        }
+    } else {
+        perror("leds_standby(): Set line value Tx failed\n");
+    }
+
+    return ret;    
+}
+
 int leds_reset_board()
 {
     // resets the board, flashing the LEDs

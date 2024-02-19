@@ -78,10 +78,9 @@ int init_ener314rt(int lock)
                     TRACE_OUTS("init_ener314(): mutex created & locked\n");
                     if ((ret = radio_init()) == 0)
                     {
-                        // place radio in known modulation and mode - OOK:Standby
+                        // place radio in known modulation and mode - FSK:Standby
                         initialised = true;
-                        //radio_modulation(RADIO_MODULATION_OOK);
-                        radio_standby();
+                        radio_setmode(RADIO_MODULATION_FSK,HRF_MODE_STANDBY);
                     }
 
                     if (!lock)

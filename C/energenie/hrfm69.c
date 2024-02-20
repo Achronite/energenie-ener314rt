@@ -18,6 +18,7 @@
 #include "spi.h"
 #include "trace.h"
 #include "gpio.h"
+#include "../achronite/leds.h"
 
 /* globals*/
 static volatile bool _spi_hw_driver = false;
@@ -31,18 +32,23 @@ int HRF_spi_init(void){
     int ret;
     uint8_t spiMode = ( SPI_MODE_0 );
 
-    // Initialise gpio
-    TRACE_OUTS("ener314rt: Initialising gpio\n");
-    ret = gpio_init();
+    // initialise GPIO using gpiod (NOTE: gpiod is NOT used by the software SPI code, it uses the deprecated WiringPi interface)
+    ret = leds_initialise();
 
-    // Try using hardware driver first
     if (ret == 0) {
+        // Try using hardware SPI driver first
         _spi_hw_fd = open("/dev/spidev0.1", O_RDWR);    // use 0.1 for CS LOW
         if (_spi_hw_fd < 0)
         {
             _spi_hw_driver = false;
             printf("ener314rt: Cannot open /dev/spidev0.1 - Fallback to Software SPI driver\n");
-            ret = spi_init_defaults();
+
+            // Initialise wiringPi gpio separately for SPI
+            TRACE_OUTS("ener314rt: Initialising gpio\n");
+            ret = gpio_init();
+            if (ret == 0) {
+                ret = spi_init_defaults();
+            }
         } else {
             _spi_hw_driver = true;
             printf("ener314rt: Hardware driver enabled on /dev/spidev0.1\n");
@@ -59,9 +65,9 @@ int HRF_spi_init(void){
             if (ioctl(_spi_hw_fd, SPI_IOC_WR_MODE, &spiMode) == 0){
                 // Get SPI mode
                 ret = ioctl(_spi_hw_fd, SPI_IOC_RD_MODE, &spiMode);
-#ifdef TRACE
+    #ifdef TRACE
                 printf("Hardware SPI ret=%d,spiMode=%d\n",ret,spiMode);
-#endif
+    #endif
 
                 // Set Word Length    
                 uint8_t spiWordLen = 8;
@@ -100,14 +106,14 @@ uint8_t _HRF_xfer( uint8_t* txbuf, uint8_t* rxbuf, uint8_t len )
         // Setup transfer params
         xfer.tx_buf        = (uintptr_t)txbuf;
         xfer.rx_buf        = (uintptr_t)rxbuf;
-        xfer.delay_usecs   = 0;
-        xfer.speed_hz      = 10000000;
+        //xfer.delay_usecs   = 0;
+        xfer.speed_hz      = 9000000;   // 10MHz does not work on pi5 (so dropped to 9MHz)
         xfer.bits_per_word = 8;
         xfer.len           = len;
-        xfer.cs_change     = 0;
+        //xfer.cs_change     = 0;
 
         // transmit the register to read - this returns length of transmit
-        status = ioctl(_spi_hw_fd, SPI_IOC_MESSAGE(1), &xfer);
+        status = ioctl(_spi_hw_fd, SPI_IOC_MESSAGE(1), &xfer);      // 1 = 1 SPI transfer
 
     } else {
         // software driver
@@ -143,6 +149,8 @@ void HRF_writereg(uint8_t addr, uint8_t data)
     int len = 2;
     uint8_t txbuf[2];
 
+/* Commented out, rarely use this for debug
+
     #if defined(FULLTRACE)        
         TRACE_OUTS("HRF_writereg(");
         TRACE_OUTN(addr);
@@ -151,6 +159,7 @@ void HRF_writereg(uint8_t addr, uint8_t data)
         TRACE_OUTC(')');
         TRACE_NL();
     #endif
+*/
 
     txbuf[0] = addr | HRF_MASK_WRITE_DATA;
 	txbuf[1] = data;
@@ -174,8 +183,8 @@ uint8_t HRF_readreg(uint8_t addr)
     int status = 0;
     int len = 2;
 
-    uint8_t txbuf[len];
-    uint8_t rxbuf[len];
+    uint8_t txbuf[2];
+    uint8_t rxbuf[2] = {0};
 
     txbuf[0] = addr;
 	txbuf[1] = 0;
@@ -255,6 +264,18 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
             } else {
                 buf[0] = 0;
             }
+
+#ifdef TRACE
+            // Check flags, to see if there is anything else...
+            uint8_t ir2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
+            if (ir2 > 0)
+                printf("\nIRQFLAGS2=%d ",ir2);
+#endif
+
+        } else {
+            // unlikely to be an OpenThings message, clear the FIFO
+            TRACE_OUTS("HRF_readfifo_burst_cbp(): Non-OT payload, clearing FIFO\n");
+            HRF_clear_fifo();            
         }
     }
 
@@ -265,7 +286,7 @@ HRF_RESULT HRF_readfifo_burst_cbp(uint8_t* buf, uint8_t buflen)
         TRACE_OUTS("HRF_readfifo_burst_cbp() len=");
         TRACE_OUTN(status);
         TRACE_OUTS(", data:");
-        for (int i=0; i<=buflen; i++ ){
+        for (int i=0; i<=status; i++ ){
             TRACE_OUTN(buf[i]);
             TRACE_OUTC(':');
         }

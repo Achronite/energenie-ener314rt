@@ -24,7 +24,7 @@
 ** To WRITE/Command any of these add 128 (0x80) to set bit 7
 */
 #define OT_PARAM_NAME_LEN 16    // 15 + null termination (Fixes #25)
-#define NUM_OT_PARAMS 52
+#define NUM_OT_PARAMS 56
 struct OT_PARAM {
   char paramName[OT_PARAM_NAME_LEN];
   char paramId;
@@ -33,9 +33,6 @@ struct OT_PARAM {
 
 
 /* OpenThings Command Parameters - 0x80 added */
-#define OTCP_SET_THERMOSTAT_MODE     0xAA   /* 170: Set thermostat off/on/permanently on
-                                       Length 1
-                                    */
 #define OTCP_EXERCISE_VALVE  0xA3   /* 163: Send exercise valve command to driver board. 
                                        Read diagnostic flags returned by driver board. 
                                        Send diagnostic flag acknowledgement to driver board. 
@@ -62,7 +59,12 @@ struct OT_PARAM {
                                          Flash red LED once every 5 seconds if ‘battery dead’ flag is set.
                                          Length 0
                                       */
-#define OTCP_IDENTIFY     0xBF          // 191
+#define OTCP_SET_THERMOSTAT_MODE 0xAA // 170: Set thermostat off/auto/permanently on (0,1,2)
+#define OTCP_RELAY_POLARITY      0xAB // 171: Thermostat relay priority (0,1) 
+#define OTCP_HUMID_OFFSET        0xBA // Thermostat Humidity calibration (-20..20)
+#define OTCP_TEMP_OFFSET         0xBD // Thermostat temperature calibration (-20..10)
+#define OTCP_IDENTIFY            0xBF // 191
+//#define OTCP_SET_TARGET_TEMPERATURE 0xCB // Thermostat (energenie email Jan 24 - this doesn't seem to work)
 #define OTCP_SET_REPORTING_INTERVAL 0xD2 /* 210: Update reporting interval to requested value
                                             Length 2
                                          */   
@@ -72,7 +74,8 @@ struct OT_PARAM {
                                     */
 #define OTCP_JOIN            0xEA   // 234
 #define OTCP_SWITCH_STATE    0xF3   // 243
-#define OTCP_TEMP_SET		 0xF4   /* 244: Send new target temperature to driver board */
+#define OTCP_TARGET_TEMP     0xF4   /* 244: Send new target temperature to driver board */
+#define OTCP_HYSTERESIS      0xFE   // 254: the difference between the current temperature and target temperature before the (thermostat) triggers
 
 // OpenThings Rx parameters (full list in .c) - these are added here to replace magic numbers in code
 #define OTP_ALARM           0x21
@@ -169,7 +172,7 @@ struct OT_PARAM {
 
 // OpenThings record
 struct OTrecord {
-    unsigned char wr;
+    bool cmd;
     unsigned char paramId;
     char paramName[OT_PARAM_NAME_LEN];
     unsigned char typeId;
@@ -192,7 +195,7 @@ enum valveState {OPEN = 0, CLOSED = 1, TEMPC = 2, ERROR = 3, UNKNOWN = 4};
 struct CACHED_CMD {
     unsigned char retries;
     unsigned char command;
-    int           data;
+    float         data;
     bool          active;           // used to indicate if we know the device is active (ie. we have an Rx msg) used for pre-caching
     unsigned char radio_msg[MAX_R1_MSGLEN];
 };
@@ -212,8 +215,17 @@ struct TRV_DEVICE {
     time_t        diagnosticDate;
     time_t        voltageDate;
     time_t        valveDate;
-    char errString[MAX_ERRSTR];
+    char errString[MAX_ERRSTR+1];
 };
+
+// Structure for storing data for Thermostat devices
+enum thermostatMode {OFF = 0, AUTO = 1, ON = 2, GATEWAY = 3};
+struct STAT_DEVICE {
+    enum thermostatMode mode;
+    time_t telemetryDate;
+};
+#define THERMOSTAT_TX_RETRIES 2
+#define THERMOSTAT_AUTO_TELEMETRY_TIME 300  // every 5 minutes
 
 // DeviceList structure
 struct OT_DEVICE {
@@ -225,6 +237,7 @@ struct OT_DEVICE {
     char          product[15];
     struct CACHED_CMD *cache;                   // need to malloc if used
     struct TRV_DEVICE *trv;                     // need to malloc if used
+    struct STAT_DEVICE *thermostat;             // need to malloc if used
 };
 
 #define MAX_DEVICES 30
@@ -236,20 +249,20 @@ struct OT_PRODUCT {
     unsigned char control;
     char          product[15];
 };
-#define NUM_OT_PRODUCTS 8
+#define NUM_OT_PRODUCTS 9
 
 
 /***** FUNCTION PROTOTYPES *****/
 int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned char bSwitchState, unsigned char xmits);
-int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits);
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, float fData, unsigned char xmits);
 char * openThings_deviceList(bool scan);
 int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout);
 int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigned char xmits);
 void openthings_scan(int iTimeOut);
 
-int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data);
+int openThings_cache_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, float fData, unsigned char retries);
 void openThings_cache_send(unsigned char index);
-int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
+//int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg);
 void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime);
 void eTRV_get_status(int OTdi, char *buf, unsigned int buflen);
 

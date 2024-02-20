@@ -13,7 +13,7 @@
 #ifndef _TRACE_H
 #define _TRACE_H
 
-// uncomment next line to enable trace debug
+// uncomment next line to enable trace debug, and the line after for even more debug
 //#define TRACE_POSIX
 //#define FULLTRACE
 

@@ -35,7 +35,10 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"DIAGNOSTICS", 0x26},
     {"ALARM", 0x21},
     {"THERMOSTAT_MODE", 0x2A}, // for Thermostat
+    {"RELAY_POLARITY",0x2B},
     {"DEBUG_OUTPUT", 0x2D},
+    {"HUMID_OFFSET",0x3A},
+    {"TEMP_OFFSET",0x3D},
     {"IDENTIFY", 0x3F},
     {"SOURCE_SELECTOR", 0x40}, // write only
     {"WATER_DETECTOR", 0x41},
@@ -50,9 +53,10 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"TARGET_TEMP", 0x4B}, // for Thermostat
     {"LEVEL", 0x4C},
     {"RAINFALL", 0x4D},
+    {"BUTTON", 0x4F}, // MiHome Click
     {"APPARENT_POWER", 0x50},
     {"POWER_FACTOR", 0x51},
-    {"REPORT_PERIOD", 0x52},
+    {"REPORT_PERIOD", 0x52},    // aka REPORTING_INTERVAL
     {"SMOKE_DETECTOR", 0x53},
     {"TIME_AND_DATE", 0x54},
     {"VIBRATION", 0x56},
@@ -74,32 +78,37 @@ static struct OT_PARAM OTparams[NUM_OT_PARAMS] = {
     {"ROTATION_SPEED", 0x72},
     {"WATER_FLOW_RATE", 0x77},
     {"WATER_PRESSURE", 0x78},
+    {"HYSTERESIS",0x7E},
     {"TEST", 0xAA}};
+
 
 // OpenThings FSK products (known)  [{mfrId, productId, control (0=no, 1=yes, 2=cached), product}]
 static struct OT_PRODUCT OTproducts[NUM_OT_PRODUCTS] = {
     {4, 0x00, 1, "Unknown"},
     {4, 0x01, 0, "Monitor Plug"},
-    {4, 0x02, 1, "Adapter Plus"},
+    {4, 0x02, 1, "Smart Plug+"},
     {4, 0x03, 2, "Radiator Valve"},
     {4, 0x05, 0, "House Monitor"},
     {4, 0x0C, 0, "Motion Sensor"},
     {4, 0x0D, 0, "Open Sensor"},
-    {4, 0x12, 2, "Thermostat"} // ProductId provided by @red-kooga. @imgrant confirmed it is a cached device
+    {4, 0x12, 2, "Thermostat"},
+    {4, 0x13, 0, "Click"}
 };
 
 // Globals - yuck
 unsigned short g_ran;
 struct OT_DEVICE g_OTdevices[MAX_DEVICES]; // TODO: should maybe make this dynamic!
-static volatile int g_NumDevices = 0;               // number of auto-discovered OpenThings devices
-static volatile int g_CachedCmds = 0;               // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
-static volatile int g_PreCachedCmds = 0;            // for caching commands before device discovered
+static volatile int g_NumDevices = 0;      // number of auto-discovered OpenThings devices
+static volatile int g_CachedCmds = 0;      // number of eTRV devices with commands waiting to be sent to them (controls Rx loop behaviour)
+static volatile int g_PreCachedCmds = 0;   // for caching commands before device discovered
 
 // declare and initialise cached count lock for multi-threading
 pthread_mutex_t cachedcount_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // private function declarations
-static void _update_cachedcmd_count( int delta, bool isCached);
+static void _update_cachedcmd_count(int delta, bool isCached);
+static int _openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, float fData, unsigned char *radio_msg);
+static int _openThings_build_record(unsigned char iCommand, float fData, unsigned char *sRecord);
 
 /*
 ** calculateCRC()- Calculate an OpenThings CRC
@@ -108,12 +117,12 @@ static void _update_cachedcmd_count( int delta, bool isCached);
 unsigned short calculateCRC(unsigned char *msg, unsigned int length)
 {
     unsigned char ch, bit;
-    unsigned short rem = 0, i; //uint16_t
+    unsigned short rem = 0, i; // uint16_t
 
     for (i = 0; i < length; i++)
     {
         ch = msg[i];
-        //printf("%d=%d\n",i,ch);
+        // printf("%d=%d\n",i,ch);
         rem = rem ^ (ch << 8);
         for (bit = 0; bit < 8; bit++)
         {
@@ -166,10 +175,10 @@ void cryptMsg(unsigned char pid, unsigned short pip, unsigned char *msg, unsigne
     unsigned char i;
 
     // old whaleygeek
-    //g_ran = (((pid & 0xFF) << 8) ^ pip);
+    g_ran = (((pid & 0xFF) << 8) ^ pip);
 
     // new from gpbenton
-    g_ran = ((((unsigned short)pid) << 8) ^ pip);
+    // g_ran = ((((unsigned short)pid) << 8) ^ pip);
 
     for (i = 0; i < length; i++)
     {
@@ -211,7 +220,7 @@ char OTtypelen(unsigned char OTtype)
 }
 
 /* finds the product code in the OTproducts array and returns index
-*/
+ */
 int openThings_getProductIndex(const char id)
 {
     for (size_t i = 1; i < NUM_OT_PRODUCTS; i++)
@@ -223,7 +232,7 @@ int openThings_getProductIndex(const char id)
 }
 
 /* finds the param code in the OTparams array and returns index
-*/
+ */
 int openThings_getParamIndex(const char id)
 {
     for (size_t i = 1; i < NUM_OT_PARAMS; i++)
@@ -235,7 +244,7 @@ int openThings_getParamIndex(const char id)
 }
 
 /* openThings_getDeviceIndex() - finds the id in the g_OTdevices array and returns index if it exists, otherwise return -1
-*/
+ */
 int openThings_getDeviceIndex(unsigned int id)
 {
     for (int i = 0; i < g_NumDevices; i++)
@@ -285,7 +294,7 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
                 g_OTdevices[OTdi].cache->radio_msg[0] = '\0';
                 g_OTdevices[OTdi].cache->retries = 0;
                 g_OTdevices[OTdi].cache->command = 0;
-                g_OTdevices[OTdi].cache->active = true; //set device active here, as it will be overriden in PreCached mode
+                g_OTdevices[OTdi].cache->active = true; // set device active here, as it will be overriden in PreCached mode
             }
         }
 
@@ -306,12 +315,28 @@ int openThings_devicePut(unsigned int iDeviceId, unsigned char mfrId, unsigned c
                 g_OTdevices[OTdi].trv->targetC = 0;
                 g_OTdevices[OTdi].trv->errors = false;
                 g_OTdevices[OTdi].trv->lowPowerMode = false;
+                memset(g_OTdevices[OTdi].trv->errString, 0, MAX_ERRSTR+1);
             }
+            g_OTdevices[OTdi].thermostat = NULL;
+        }
+        // add extra structure if a thermostat
+        else if (productId == PRODUCTID_MIHO069)
+        {
+            TRACE_OUTS("openThings_devicePut() adding thermostat struct.\n");
+            g_OTdevices[OTdi].thermostat = malloc(sizeof(struct STAT_DEVICE));
+            if (g_OTdevices[OTdi].thermostat != NULL)
+            {
+                // malloc OK, set defaults
+                g_OTdevices[OTdi].thermostat->mode = GATEWAY;
+                g_OTdevices[OTdi].thermostat->telemetryDate = 0;
+            }
+            g_OTdevices[OTdi].trv = NULL;
         }
         else
         {
-            // this isnt a trv, so we dont need an extra struct
+            // this isnt special, so we dont need extra structs
             g_OTdevices[OTdi].trv = NULL;
+            g_OTdevices[OTdi].thermostat = NULL;
         }
 
 #if defined(TRACE)
@@ -353,15 +378,17 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
     int index = 0;
     // float f;
 
-    //struct openThingsHeader sOTHeader;
+    // struct openThingsHeader sOTHeader;
 
     /* max buffer is 66, so what is reasonable for records array?  bytes left after CRC (2), Header (8) = 56
      * each record has 2 bytes header and a variable length payload of up to 15 (0xF) bytes based on type,
      * which looking at the spec is max 24bits (excluding FLOAT), so 3-17 bytes / record; so max would be 56/3=18 records
      */
 
-    // reproduce issue #25
-    //memcpy(payload, (unsigned char []){13,4,12,51,242,153,243,13,28,61,75,247,30,185},14);
+    // reproduce issue #33
+    // memcpy(payload, (unsigned char []){28,4,2,20,252,97,146,180,94,192,160,222,89,15,199,175,253,53,51,182,70,231,121,124,227,205,125,90,134},29);
+    // memcpy(payload, (unsigned char []){13,4,2,91,7,48,104,172,179,88,183,44,66,242,0},14);
+    //memcpy(payload, (unsigned char []){14,4,18,10,131,19,68,104,131,132,112,212,159,153,11,84,72,10,166},15);
 
     length = payload[0];
 
@@ -387,11 +414,23 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
 
     if (crc != crca)
     {
-        // CRC does not match
+// CRC does not match
+#ifdef FULLTRACE
+        TRACE_OUTS("openThings_decode() len=");
+        TRACE_OUTN(length);
+        TRACE_OUTS(", decoded data:");
+        for (int i = 0; i <= length; i++)
+        {
+            TRACE_OUTN(payload[i]);
+            TRACE_OUTC(':');
+        }
+        printf(" crc:%d, crca:%d, deviceId=%u - CRC FAILED\n", crc, crca, *iDeviceId);
+#endif
         return -2;
     }
     else
     {
+
         // CRC OK
 
         // find discovered device and check for outstanding cached cmds for it
@@ -403,28 +442,39 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             index = openThings_getDeviceIndex(*iDeviceId);
             if (index >= 0 && g_OTdevices[index].control == 2 && g_OTdevices[index].cache->retries > 0)
             {
-                openThings_cache_send(index);
+                // Only send commands on wakeup of thermostat
+                if (*productId != PRODUCTID_MIHO069 || payload[8] == OTP_WAKEUP) {
+                    openThings_cache_send(index);
+                }
+                
             }
         }
-        //DECODE RECORDS
+        // DECODE RECORDS
         i = 8; // start at the 1st record
 
-        while ((i < (length-2)) && (payload[i] != 0) && (record < OT_MAX_RECS))
+        while ((i < (length - 2)) && (payload[i] != 0) && (record < OT_MAX_RECS))
         {
             // reset values
-            //memset(recs[record].retChar, '\0', 15);
+            // memset(recs[record].retChar, '\0', 15);
             result = 0;
 
             // PARAM
             param = payload[i++];
-            recs[record].wr = ((param & 0x80) == 0x80);
-            recs[record].paramId = param & 0x7F;
+            //recs[record].wr = ((param & 0x80) == 0x80);
+            //recs[record].paramId = param & 0x7F;
+            recs[record].paramId = param;
+            recs[record].cmd = (param & 0x80);
 
-            // lookup the parameter name in the known parameters table
-            int paramIndex = openThings_getParamIndex(recs[record].paramId);
+            // lookup the parameter name in the known parameters table (commands are converted to responses)
+            int paramIndex = openThings_getParamIndex(recs[record].paramId & 0x7F);
             if (paramIndex != 0)
             {
-                strncpy(recs[record].paramName, OTparams[paramIndex].paramName,OT_PARAM_NAME_LEN);
+                if (recs[record].cmd){
+                    // record is a command from the gateway or another instance 
+                    sprintf(recs[record].paramName, "_%s",  OTparams[paramIndex].paramName);
+                } else {
+                    strncpy(recs[record].paramName, OTparams[paramIndex].paramName, OT_PARAM_NAME_LEN);
+                }
             }
             else
             {
@@ -507,7 +557,9 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
             }
             else
             {
-                TRACE_OUTS("rlen=0\n");
+#ifdef TRACE
+                printf("openThings_decode(): No data for %s received for device %u:%d\n", recs[record].paramName, *productId, *iDeviceId);
+#endif
                 recs[record].retInt = 0;
             }
 
@@ -517,8 +569,8 @@ int openThings_decode(unsigned char *payload, unsigned char *mfrId, unsigned cha
         }
     }
 
-    //printf("openThings_decode(): returning %d (i=%d)\n",record,i);
-    // return the number of records
+    // printf("openThings_decode(): returning %d (i=%d)\n",record,i);
+    //  return the number of records
     return record;
 }
 
@@ -553,7 +605,7 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
     */
 
     /* Stage 1a: OpenThings HEADER
-    */
+     */
     // productId (usually 2 for MIHO005)
     radio_msg[OTH_INDEX_PRODUCTID] = iProductId;
 
@@ -561,9 +613,9 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
     ** Stage 1b: OpenThings RECORDS (Commands)
     */
     // deviceId
-    radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    //MSB
-    radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; //MID
-    radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        //LSB
+    radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    // MSB
+    radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; // MID
+    radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        // LSB
 
     // pip (random)
     radio_msg[OTH_INDEX_PIP] = rand();
@@ -608,8 +660,9 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
     }
     else
     {
-        ret = empty_radio_Rx_buffer(DT_CONTROL);
-        //printf("openThings_switch(%d): Rx_Buffer ", ret);
+        // #32 - Do not return the record count
+        empty_radio_Rx_buffer(DT_CONTROL);
+        // printf("openThings_switch(%d): Rx_Buffer ", recs);
 
         /*
         ** Stage 3: Transmit via radio adaptor, using mutex to block the radio
@@ -625,7 +678,7 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 }
 
 /*
-** openThings_build_msg()
+** _openThings_build_msg()
 ** ===================
 ** Creates a fully-formed radio message to be sent to an FSK OpenThings based device
 ** Message is not sent here
@@ -634,20 +687,6 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 **
 ** Currently this has been tested with 'HiHome Adaptor Plus' and 'MiHome Heating' TRV
 ** Other OpenThings devices should work
-**
-** SUPPORTED Commands (x)
-** ----------------------
-** x OTCP_SWITCH_STATE              0xF3  Set status of switched device
-** - OTCP_JOIN                      0xEA  Acknowledge a JOIN request
-** x OTCP_TEMP_SET                  0xF4  Send new target temperature
-** x OTCP_EXERCISE_VALVE            0xA3  Send exercise valve command to TRV 
-** x OTCP_REQUEST_VOLTAGE           0xE2  Request battery voltage 
-** x OTCP_REQUEST_DIAGNOTICS        0xA6  Request diagnostic flags
-** x OTCP_SET_VALVE_STATE           0xA5  Set TRV valve state
-** x OTCP_SET_LOW_POWER_MODE        0xA4  Set TRV 0=Low power mode off, 1=Low power mode on
-** - OTCP_SET_REPORTING_INTERVAL    0xD2  Update reporting interval to requested value
-** x OTCP_SET_THERMOSTAT_MODE       0xAA  Set mode of Room Thermostat
-** x UNKNOWN                        else  All other commands - assumes a uint as a single param
 **
 ** The OpenThings messages are comprised of 3 parts:
 **  Header  - msgLength, manufacturerId, productId, encryptionPIP, and deviceId
@@ -661,172 +700,82 @@ int openThings_switch(unsigned char iProductId, unsigned int iDeviceId, unsigned
 **  NO sending the radio request via the ENER314-RT RaspberryPi adaptor
 **     returning built message
 */
-int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, unsigned int iData, unsigned char *radio_msg)
+int _openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsigned char iCommand, float fData, unsigned char *radio_msg)
 {
-    int ret = 0;
+    int ret = 0, reclen=0;
     unsigned short crc, pip;
-    //unsigned char radio_msg[MAX_R1_MSGLEN] = {0x00, ENERGENIE_MFRID, PRODUCTID_MIHO005, OT_DEFAULT_PIP, OT_DEFAULT_DEVICEID, 0x00, 0x00, 0x00, 0x00};
+    // unsigned char radio_msg[MAX_R1_MSGLEN] = {0x00, ENERGENIE_MFRID, PRODUCTID_MIHO005, OT_DEFAULT_PIP, OT_DEFAULT_DEVICEID, 0x00, 0x00, 0x00, 0x00};
     unsigned char msglen = 0;
-    unsigned char iType = 0x00;
 
 #if defined(TRACE)
-    printf("openThings_build_msg: productId=%d, deviceId=%d, cmd=%d, data=%d cmd=", iProductId, iDeviceId, iCommand, iData);
+    printf("openThings_build_msg: productId=%d, deviceId=%d, data=%g, cmd=(%d) ", iProductId, iDeviceId, fData, iCommand);
 #endif
 
-    switch (iCommand)
+    // call new function to build the record
+    // TODO: Allow for multiple commands/records in a single request
+
+    reclen = _openThings_build_record(iCommand, fData, &radio_msg[OT_INDEX_R1_CMD]);
+
+    if (reclen > 0)
     {
-    case OTCP_SET_VALVE_STATE:
-        msglen = MIN_R1_MSGLEN + 1;
-        iType = 0x01;
-#if defined(TRACE)
-        printf("SET_VALVE_STATE msglen=%d\n", msglen);
-#endif
-        break;
+        /*
+        ** Stage 1: Build the message to send
+        */
 
-    case OTCP_TEMP_SET:
-        msglen = MIN_R1_MSGLEN + 2;
-        iType = 0x92; // bit weird, but it works
-#if defined(TRACE)
-        printf("OTCP_TEMP_SET msglen=%d\n", msglen);
-#endif
-        break;
+        /* Stage 1a: OpenThings HEADER
+         */
+        // message length
+        msglen = MIN_R1_MSGLEN + reclen - 2;
+        radio_msg[0] = msglen - 1;
 
-    case OTCP_REQUEST_DIAGNOSTICS:
-        msglen = MIN_R1_MSGLEN;
-#if defined(TRACE)
-        printf("OTCP_REQUEST_DIAGNOTICS msglen=%d\n", msglen);
-#endif
-        break;
+        // product
+        radio_msg[OTH_INDEX_MFRID] = ENERGENIE_MFRID;
+        radio_msg[OTH_INDEX_PRODUCTID] = iProductId;
 
-    case OTCP_EXERCISE_VALVE:
-        msglen = MIN_R1_MSGLEN;
-#if defined(TRACE)
-        printf("OTCP_EXERCISE_VALVE msglen=%d\n", msglen);
-#endif
-        break;
+        // pip random
+        radio_msg[OTH_INDEX_PIP] = rand();
+        radio_msg[OTH_INDEX_PIP + 1] = rand();
+        pip = (unsigned short)((radio_msg[OTH_INDEX_PIP] << 8) | radio_msg[OTH_INDEX_PIP + 1]);
 
-    case OTCP_REQUEST_VOLTAGE:
-        msglen = MIN_R1_MSGLEN;
-#if defined(TRACE)
-        printf("OTCP_REQUEST_VOLTAGE msglen=%d\n", msglen);
-#endif
-        break;
+        // deviceId
+        radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    // MSB
+        radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; // MID
+        radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        // LSB
 
-    case OTCP_SWITCH_STATE:
-        msglen = MIN_R1_MSGLEN + 1;
-        iType = 0x01;
-#if defined(TRACE)
-        printf("OTCP_SWITCH_STATE msglen=%d\n", msglen);
-#endif
-        break;
+        /*
+        ** Stage 1b: Records
+        **
+        ** Performed above by _openThings_build_record
+        */
 
-    case OTCP_IDENTIFY:
-        msglen = MIN_R1_MSGLEN;
-#if defined(TRACE)
-        printf("OTCP_IDENTIFY msglen=%d\n", msglen);
-#endif
-        break;
+        /*
+        ** Stage 1c: OpenThings FOOTER (CRC)
+        */
+        crc = calculateCRC(&radio_msg[5], (msglen - 7));
+        radio_msg[msglen - 2] = ((crc >> 8) & 0xFF); // MSB
+        radio_msg[msglen - 1] = (crc & 0xFF);        // LSB
 
-    case OTCP_SET_LOW_POWER_MODE:
-        msglen = MIN_R1_MSGLEN + 1;
-        iType = 0x01;
-#if defined(TRACE)
-        printf("OTCP_SET_LOW_POWER_MODE msglen=%d\n", msglen);
+#if defined(FULLTRACE)
+        TRACE_OUTS("Built payload (unencrypted): ");
+        for (int i = 0; i < msglen; i++)
+        {
+            TRACE_OUTN(radio_msg[i]);
+            TRACE_OUTC(',');
+        }
+        TRACE_NL();
 #endif
-        break;
 
-    case OTCP_SET_THERMOSTAT_MODE:
-        msglen = MIN_R1_MSGLEN + 1;
-        iType = 0x01;
-#if defined(TRACE)
-        printf("OTCP_SET_THERMOSTAT_MODE msglen=%d\n", msglen);
-#endif
-        break;
-
-    default:
-        // unknown command, assume a uint as data
-        msglen = MIN_R1_MSGLEN + 1;
-        iType = 0x01;
-#if defined(TRACE)
-        printf("UNKNOWN msglen=%d\n", msglen);
-#endif
+        // Stage 1d: encrypt body part of message
+        cryptMsg(CRYPT_PID, pip, &radio_msg[5], (msglen - 5));
     }
-
-    /*
-    ** Stage 1: Build the message to send
-    */
-
-    /* Stage 1a: OpenThings HEADER
-    */
-    // message length
-    radio_msg[0] = msglen - 1;
-
-    // product
-    radio_msg[OTH_INDEX_MFRID] = ENERGENIE_MFRID;
-    radio_msg[OTH_INDEX_PRODUCTID] = iProductId;
-
-    // pip random
-    radio_msg[OTH_INDEX_PIP] = rand();
-    radio_msg[OTH_INDEX_PIP + 1] = rand();
-    pip = (unsigned short)((radio_msg[OTH_INDEX_PIP] << 8) | radio_msg[OTH_INDEX_PIP + 1]);
-
-    /*
-    ** Stage 1b: Build OpenThings RECORDS (Commands)
-    */
-    // deviceId
-    radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    //MSB
-    radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; //MID
-    radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        //LSB
-
-    // command
-    radio_msg[OT_INDEX_R1_CMD] = iCommand;
-
-    // command data type
-    radio_msg[OT_INDEX_R1_TYPE] = iType;
-
-    // data value, base encoding off the msglen
-    switch (msglen - MIN_R1_MSGLEN)
+    else
     {
-    case 0:
-        break;
-    case 1:
-        radio_msg[OT_INDEX_R1_VALUE] = iData & 0xFF;
-        break;
-    case 2:
-        radio_msg[OT_INDEX_R1_VALUE] = iData & 0xFF;
-        radio_msg[OT_INDEX_R1_VALUE + 1] = (iData >> 8) & 0xFF;
-        break;
-    }
-
-    /*
-    ** Stage 1c: OpenThings FOOTER (CRC)
-    */
-    crc = calculateCRC(&radio_msg[5], (msglen - 7));
-    radio_msg[msglen - 2] = ((crc >> 8) & 0xFF); // MSB
-    radio_msg[msglen - 1] = (crc & 0xFF);        // LSB
-
+        // unknown command, ignore
 #if defined(TRACE)
-    TRACE_OUTS("Built payload (unencrypted): ");
-    for (int i = 0; i < msglen; i++)
-    {
-        TRACE_OUTN(radio_msg[i]);
-        TRACE_OUTC(',');
-    }
-    TRACE_NL();
+        printf("UNKNOWN Command=%d\n", iCommand);
 #endif
-
-    // Stage 1d: encrypt body part of message
-    cryptMsg(CRYPT_PID, pip, &radio_msg[5], (msglen - 5));
-
-#if defined(TRACE)
-    TRACE_OUTS("Built payload (encrypted): ");
-    for (int i = 0; i < msglen; i++)
-    {
-        TRACE_OUTN(radio_msg[i]);
-        TRACE_OUTC(',');
+        ret = -1;
     }
-    TRACE_NL();
-#endif
 
     return ret;
 }
@@ -839,14 +788,14 @@ int openThings_build_msg(unsigned char iProductId, unsigned int iDeviceId, unsig
 **
 ** NOTE: This deliberately does not double check the device type as 'control' (1), so be careful this is the right function to call
 */
-int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, unsigned int data, unsigned char xmits)
+int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, float fData, unsigned char xmits)
 {
     int ret = 0;
     unsigned char radio_msg[MAX_R1_MSGLEN] = {0};
     unsigned char msglen;
 
 #if defined(TRACE)
-    printf("openThings_cmd(): deviceId=%d, cmd=%d, data=%d\n", iDeviceId, command, data);
+    printf("openThings_cmd(): deviceId=%d, cmd=%d, data=%g\n", iDeviceId, command, fData);
 #endif
 
     /*
@@ -854,7 +803,7 @@ int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned ch
     */
 
     // build full radio message
-    ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
+    ret = _openThings_build_msg(iProductId, iDeviceId, command, fData, radio_msg);
 
     if (ret == 0)
     {
@@ -889,155 +838,110 @@ int openThings_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned ch
 **
 ** Sending a command of 0 will clear the existing cached command
 **
-** TODO - add ProductId as param for device specific coding (also requires node-red change; so delayed until we can restrict dependent version)
 */
-int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned int data)
+int openThings_cache_cmd(unsigned char iProductId, unsigned int iDeviceId, unsigned char command, float fData, unsigned char retries)
 {
-    int ret = 0, index;
+    int ret = 0, index, OTpi;
     unsigned char radio_msg[MAX_R1_MSGLEN] = {0};
 
 #if defined(TRACE)
-    printf("openThings_cache_cmd(): deviceId=%d, cmd=%d, data=%d\n", iDeviceId, command, data);
+    printf("openThings_cache_cmd(): productId=%d, deviceId=%d, cmd=%d, data=%g, retries=%d\n", iProductId, iDeviceId, command, fData, retries);
 #endif
 
     /*
     ** Device must be type 2 to accept cached commands, these devices have an extra .cache structure to store the command
-    ** but they MUST be in the deviceList already
+    ** but they MUST be in the deviceList before proceeding
     ** (i.e. we have had an Rx a msg from it)
     */
     index = openThings_getDeviceIndex(iDeviceId);
-    if (index >= 0)
+    if (index < 0)
     {
-        // Check that the device is actually cachable to prevent mem errs (#18)
-        if (g_OTdevices[index].control == 2)
+        // unknown device
+        if (command == 0)
         {
-            // allow cancel of existing cached command  (Issue #27)
-            if (command == 0)
-            {
-                // cancel the existing cached command for this device
-                if (g_OTdevices[index].cache->command > 0)
-                {
-                    g_OTdevices[index].cache->command = 0;
-                    g_OTdevices[index].cache->retries = 0;
-
-                    // Decrement CachedCmd Count
-                    _update_cachedcmd_count( -1, g_OTdevices[index].cache->active );
-                    /*
-                    if (g_OTdevices[index].cache->active){
-                        if (g_CachedCmds > 0)
-                            g_CachedCmds--;
-                        TRACE_OUTS("openThings_cache_cmd(): Cached command cleared, ");
-                    } else {
-                        if (g_PreCachedCmds > 0)
-                            g_PreCachedCmds--;
-                        TRACE_OUTS("openThings_cache_cmd(): Pre-cached command cleared, ");
-                    }
-                    */
-                    TRACE_OUTN(g_CachedCmds);
-                    TRACE_OUTS(" cached payload(s),");
-                    TRACE_OUTN(g_PreCachedCmds);
-                    TRACE_OUTS(" payload(s) PRE-cached\n");
-                };
-            }
-            else
-            {
-                // Device known, build full radio message
-                ret = openThings_build_msg(g_OTdevices[index].productId, iDeviceId, command, data, radio_msg);
-
-                if (ret == 0)
-                {
-                    // store message against the Device array, only 1 cached command is supported for each device
-                    // TODO: add mutex
-                    if (g_OTdevices[index].cache->retries <= 0)
-                    {
-                        _update_cachedcmd_count(1, g_OTdevices[index].cache->active);
-                    }
-
-                    memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
-                    g_OTdevices[index].cache->command = command;
-                    g_OTdevices[index].cache->data = data;
-                    g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
-
-                    // Store any output only variables in eTRV state
-                    if (g_OTdevices[index].productId == PRODUCTID_MIHO013)
-                    {
-                        switch (command)
-                        {
-                        case OTCP_TEMP_SET:
-                            g_OTdevices[index].trv->targetC = data;
-                            break;
-                        case OTCP_SWITCH_STATE:
-                            g_OTdevices[index].trv->valve = data;
-                        }
-                    }
-                    TRACE_OUTN(g_CachedCmds);
-                    TRACE_OUTS(" payload(s) cached, ");
-                    TRACE_OUTN(g_PreCachedCmds);
-                    TRACE_OUTS(" payload(s) PRE-cached\n");
-                }
-            }
+            // Unknown device with an invalid command - exit!
+            TRACE_OUTS("openThings_cache_cmd() WARNING: Cannot cancel a command for an unknown device\n");
+            return -1;
         }
         else
         {
-            // This is not a message cachable device, abort
-            TRACE_OUTS("openThings_cache_cmd() ERROR: Cannot cache commands for this type of device\n");
-            ret = -4;
+            // The device is not in the deviceList, add a placeholder for the device IF IT IS A CACHABLE DEVICE
+            OTpi = openThings_getProductIndex(iProductId);
+            if (OTproducts[OTpi].control == 2)
+            {
+                // cachable device
+                index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, iProductId, false);
+                g_OTdevices[index].cache->active = false; // indicates an unknown device
+            }
+            else
+            {
+                // This is not a message cachable device, abort
+                TRACE_OUTS("openThings_cache_cmd() ERROR: Cannot cache commands for this type of unknown device\n");
+                return -4;
+            }
+        }
+    }
+
+    // Check that the device is actually cachable to prevent mem errs (#18)
+    if (g_OTdevices[index].control == 2)
+    {
+        // allow cancel of existing cached command (Issue #27)
+        if (command == 0)
+        {
+            // cancel the existing cached command for this device
+            if (g_OTdevices[index].cache->command > 0)
+            {
+                g_OTdevices[index].cache->command = 0;
+                g_OTdevices[index].cache->retries = 0;
+
+                // Decrement CachedCmd Count
+                _update_cachedcmd_count(-1, g_OTdevices[index].cache->active);
+            };
+        }
+        else
+        {
+            // Build full radio message
+            ret = _openThings_build_msg(g_OTdevices[index].productId, iDeviceId, command, fData, radio_msg);
+
+            if (ret == 0)
+            {
+                // store message against the Device array, only 1 cached command is supported for each device
+                // this now overwrites any existing command
+                // TODO: add mutex
+                if (g_OTdevices[index].cache->retries <= 0)
+                {
+                    // No existing command, so need to update cached/pre-cached command count
+                    _update_cachedcmd_count(1, g_OTdevices[index].cache->active);
+                } else {
+                    TRACE_OUTS("openThings_cache_cmd(): WARNING: existing cached command replaced\n");
+                }
+
+                memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
+                g_OTdevices[index].cache->command = command;
+                g_OTdevices[index].cache->data = fData;
+                g_OTdevices[index].cache->retries = retries; // Rx window is really small, so retry the Tx this number of times
+
+                // Store any output only variables in state for eTRV
+                if (g_OTdevices[index].productId == PRODUCTID_MIHO013)
+                {
+                    switch (command)
+                    {
+                    case OTCP_TARGET_TEMP:
+                        g_OTdevices[index].trv->targetC = fData;
+                        break;
+                    case OTCP_SWITCH_STATE:
+                        g_OTdevices[index].trv->valve = (int)fData;
+                    }
+                }
+
+            }
         }
     }
     else
     {
-        // cater for cancel sent before pre-caching
-        if (command > 0){
-            // UNKNOWN device
-            // Assume eTRV as iProductId until we can pass this in via cmd params
-            // TODO - What about thermostat?
-            char iProductId = PRODUCTID_MIHO013;
-
-            // The device is not in the deviceList, add a placeholder for the device
-            index = openThings_devicePut(iDeviceId, ENERGENIE_MFRID, iProductId, false);
-
-            // build full radio message
-            ret = openThings_build_msg(iProductId, iDeviceId, command, data, radio_msg);
-
-            if (ret == 0 && g_OTdevices[index].cache != NULL)
-            {
-                // use special g_PreCachedCmds for this to protect against going into dynamic polling mode (g_CachedCmds>0), just in case the device is AWOL
-                // TODO: add mutex to g_OTdevices/g_NumDevices
-                //g_PreCachedCmds++;
-                _update_cachedcmd_count(1, false);
-
-
-                // store message against the Device array, only 1 cached command is supported at any one time
-                memcpy(g_OTdevices[index].cache->radio_msg, radio_msg, MAX_R1_MSGLEN);
-                g_OTdevices[index].cache->command = command;
-                g_OTdevices[index].cache->retries = TRV_TX_RETRIES; // Rx window is really small, so retry the Tx this number of times
-
-                // set device to inactive as we are pre-caching before device found
-                g_OTdevices[index].cache->active = false;
-
-                // special eTRV processing
-                if (iProductId == PRODUCTID_MIHO013)
-                {
-                    // Store any output only variables in eTRV state
-                    switch (command)
-                    {
-                    case OTCP_TEMP_SET:
-                        g_OTdevices[index].trv->targetC = data;
-                        break;
-                    case OTCP_SWITCH_STATE:
-                        g_OTdevices[index].trv->valve = data;
-                    }
-                }
-
-                TRACE_OUTN(g_PreCachedCmds);
-                TRACE_OUTS(" payload(s) PRE-cached\n");
-            }
-            else
-            {
-                TRACE_OUTS("openThings_cache_cmd() ERROR: unable to cache command\n");
-                ret = -2;
-            }
-        }
+        // This is not a message cachable device, abort
+        TRACE_OUTS("openThings_cache_cmd() ERROR: Cannot cache commands for this type of device\n");
+        ret = -4;
     }
 
     return ret;
@@ -1070,23 +974,23 @@ int openThings_cache_cmd(unsigned int iDeviceId, unsigned char command, unsigned
 */
 int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
 {
-    //int ret = 0;
-    //uint8_t buf[MAX_FIFO_BUFFER];
+    // int ret = 0;
+    // uint8_t buf[MAX_FIFO_BUFFER];
     struct OTrecord OTrecs[OT_MAX_RECS];
     unsigned char mfrId, productId;
     unsigned int iDeviceId;
     int records, i, msgsInRxBuf;
     char OTrecord[200];
     struct RADIO_MSG rxMsg;
-    bool joined = false, cmdProcessed = false;
+    bool joined = false;
     ;
     int OTdi;
     struct timeval startTime, currentTime, diffTime;
     unsigned int diff = 0;
 
-    //printf("openthings_receive(): called, buflen=%d\n", buflen);
+    // printf("openthings_receive(): called, buflen=%d\n", buflen);
 
-    //record startTime for timeout
+    // record startTime for timeout
     if (timeout > 0)
     {
         gettimeofday(&startTime, NULL);
@@ -1125,7 +1029,7 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
         /*
         ** Stage 2 - decode and process next message in RxMsgs buffer
         */
-        //printf("<%d-%d>",pRxMsgHead, pRxMsgTail);
+        // printf("<%d-%d>",pRxMsgHead, pRxMsgTail);
 
         // loop2 - until we have read a valid OTmsg OR the RxMsg buffer is empty
         do
@@ -1133,27 +1037,31 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
             if ((msgsInRxBuf = pop_RxMsg(&rxMsg)) >= 0)
             {
                 // Rx message avaiable in buffer
-                //printf("openThings_receive(): msg popped, ts=%d\n", (int)rxMsg.t);
+                // printf("openThings_receive(): msg popped, ts=%d\n", (int)rxMsg.t);
                 records = openThings_decode(rxMsg.msg, &mfrId, &productId, &iDeviceId, OTrecs);
 
-                //printf("openThings_decode() returned %d records for deviceId=%d\n",records, iDeviceId);
+                // printf("openThings_decode() returned %d records for deviceId=%d\n",records, iDeviceId);
                 if (records > 0)
                 {
                     // build response JSON
                     sprintf(OTmsg, "{\"deviceId\":%d,\"mfrId\":%d,\"productId\":%d,\"timestamp\":%d", iDeviceId, mfrId, productId, (int)rxMsg.t);
-
+#if defined(FULLTRACE)
+                    TRACE_OUTS("openThings_receive(): hdr: ");
+                    TRACE_OUTS(OTmsg);
+                    TRACE_NL();
+#endif
                     // add records
                     for (i = 0; i < records; i++)
                     {
 #if defined(FULLTRACE)
                         TRACE_OUTS("openThings_receive(): rec:");
                         TRACE_OUTN(i);
-                        sprintf(OTrecord, " {\"name\":\"%s\",\"id\":%d,\"type\":%d,\"str\":\"%s\",\"int\":%d,\"float\":%f}\n", OTrecs[i].paramName, OTrecs[i].paramId, OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
+                        sprintf(OTrecord, " {\"name\":\"%s\",\"id\":%d(%s),\"datatype\":%d,\"str\":\"%s\",\"int\":%d,\"float\":%f}\n", OTrecs[i].paramName, OTrecs[i].paramId, OTrecs[i].cmd?"command":"status", OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
                         TRACE_OUTS(OTrecord);
 #endif
                         switch (OTrecs[i].typeIndex)
                         {
-                        case OTR_CHAR: //CHAR
+                        case OTR_CHAR: // CHAR
                             sprintf(OTrecord, ",\"%s\":\"%s\"", OTrecs[i].paramName, OTrecs[i].retChar);
                             break;
                         case OTR_INT:
@@ -1163,13 +1071,13 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             switch (OTrecs[i].paramId)
                             {
                             case OTP_JOIN: // JOIN_ACK
+                            case OTCP_JOIN:
                                 // We seem to have stumbled upon an instruction to join outside of discovery loop, may as well autojoin the device
                                 TRACE_OUTS("openThings_receive(): New device found, sending ACK: deviceId:");
                                 TRACE_OUTN(iDeviceId);
                                 TRACE_NL();
                                 openThings_joinACK(productId, iDeviceId, 20);
                                 joined = true;
-
                                 break;
                             case OTP_TEMPERATURE: // TEMPERATURE
                                 // Seems that TEMPERATURE (OTP_TEMPERATURE) received as type OTR_INT=1, and it should be OTR_FLOAT=2 from the eTRV, so override and return a float instead
@@ -1179,9 +1087,28 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                             break;
                         case OTR_FLOAT:
                             sprintf(OTrecord, ",\"%s\":%f", OTrecs[i].paramName, OTrecs[i].retFloat);
+                            break;
+                        case 0:  // No data
+                            sprintf(OTrecord, ",\"%s\":0", OTrecs[i].paramName);
+                            if (OTrecs[i].paramId == OTCP_JOIN){
+                                // We seem to have stumbled upon an instruction to join outside of discovery loop, may as well autojoin the device
+                                TRACE_OUTS("openThings_receive(): New device found, sending ACK: deviceId:");
+                                TRACE_OUTN(iDeviceId);
+                                TRACE_NL();
+                                openThings_joinACK(productId, iDeviceId, 10);
+                                joined = true;
+                                break;                                
+                            }
+                            break;
+                        default:
+                            // The type is unknown or not set, assume INT (for now)
+#if defined(TRACE)
+                            printf("openThings_receive(): WARNING type:%d unknown assuming INT. str:%s,int:%d,float:%f\n", OTrecs[i].typeIndex, OTrecs[i].retChar, OTrecs[i].retInt, OTrecs[i].retFloat);
+#endif
+                            sprintf(OTrecord, ",\"%s\":%d", OTrecs[i].paramName, OTrecs[i].retInt);
                         }
 
-                        //add OT record to returned msg
+                        // add OT record to returned msg
                         strcat(OTmsg, OTrecord);
                     }
 
@@ -1199,101 +1126,101 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                         break;
 
                     case PRODUCTID_MIHO069: // thermostat
-                        // Generally we get either a OTP_WAKEUP or all data from the thermostat
-
-                        if (g_OTdevices[OTdi].cache != NULL && g_OTdevices[OTdi].cache->retries > 0)
+                        if (g_OTdevices[OTdi].cache != NULL)
                         {
-                            if (OTrecs[0].paramId == OTP_WAKEUP)
+                            // Check if we have a cached command and has it been succesfully processed
+                            if (g_OTdevices[OTdi].cache->command != 0)
                             {
-                                // On WAKEUP send cached command; this assumes these are sent regularly!
-                                openThings_cache_send(OTdi);
+                                // Anything othere than a WAKEUP commands show that are a command has been received (and processed if applicable)
+                                if (OTrecs[0].paramId != OTP_WAKEUP)
+                                {
+                                    // telemetry received, make a note of the thermostat mode for replay (ie it has changed)
+                                    for (i = 0; i < records; i++)
+                                    {
+                                        // printf("openThings_receive(): %d command=%d paramId=%d\n", i, g_OTdevices[OTdi].cache->command, OTrecs[i].paramId);
+                                        if (OTrecs[i].paramId == OTP_THERMOSTAT_MODE)
+                                        {
+                                            g_OTdevices[OTdi].thermostat->mode = (unsigned int)OTrecs[i].retInt;
+
+#ifdef TRACE
+                                            printf("openThings_receive(): Thermostat mode %d stored, saving for auto-messaging telemetry\n",g_OTdevices[OTdi].thermostat->mode);
+#endif
+
+                                        }
+                                    }
+                                    // Cached command has been processed, stop retrying Tx
+                                    // NOTE: This should preserve any button presses made on the device as it will ignore the last command
+                                    // TODO: add mutex
+
+                                    // Add the processed command for the parameters that are never returned by the Thermostat
+                                    switch (g_OTdevices[OTdi].cache->command){
+                                        case OTCP_HYSTERESIS:
+                                        case OTCP_HUMID_OFFSET:
+                                        case OTCP_RELAY_POLARITY:
+                                        case OTCP_SET_THERMOSTAT_MODE:
+                                        case OTCP_TEMP_OFFSET:
+                                            // Assume (as we could have a gateway) that a non-returned command was processed
+                                            // Return the value processed
+
+                                            // lookup the parameter name in the known parameters table (commands are converted to responses)
+                                            i = openThings_getParamIndex(g_OTdevices[OTdi].cache->command & 0x7F);                                              
+                                            if (i != 0)
+                                            {
+#ifdef TRACE
+                                                printf("openThings_receive(): rec:+ command %s (%d) assumed processed\n",OTparams[i].paramName,g_OTdevices[OTdi].cache->command);
+#endif
+                                                sprintf(OTrecord, ",\"%s\":%g",OTparams[i].paramName, g_OTdevices[OTdi].cache->data);
+                                                strcat(OTmsg, OTrecord);
+                                            }
+                                    }
+
+                                    g_OTdevices[OTdi].cache->command = 0;
+                                    g_OTdevices[OTdi].cache->retries = 0;
+                                    _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
+                                    g_OTdevices[OTdi].thermostat->telemetryDate = rxMsg.t; // store last successful telemetry data
+#ifdef TRACE
+                                    printf("openThings_receive(): stored time %ld %ld\n", g_OTdevices[OTdi].thermostat->telemetryDate, rxMsg.t);
+#endif
+
+
+                                }
                             }
                             else
                             {
-                                // We need to iterate the Rx records and check the values against targets in cached cmd
+                                // No outstanding cached commands...
+                                // Create one for the next thermostat WAKEUP if telemetry data is old to allow for periodic auto-reporting for the thermostat
+                                // NOTE: We must have already processed a THERMOSTAT_MODE command for this to be enabled
 
-                                // Check if the cached command has been succesfully processed
-                                cmdProcessed = false;
-                                switch (g_OTdevices[OTdi].cache->command)
+                                if (g_OTdevices[OTdi].thermostat != NULL &&
+                                    g_OTdevices[OTdi].thermostat->mode != GATEWAY &&
+                                    OTrecs[0].paramId == OTP_WAKEUP)
                                 {
-                                case OTCP_TEMP_SET:
-                                    // Check TARGET_TEMP
-                                    for (i = 0; i < records; i++)
+                                    // We also need to wait some time before sending a cached command to preserve battery life on thermostat
+                                    if ((g_OTdevices[OTdi].thermostat->telemetryDate + (time_t)THERMOSTAT_AUTO_TELEMETRY_TIME) < rxMsg.t)
                                     {
-                                        if (OTrecs[i].paramId == OTP_TARGET_TEMP)
-                                        {
-                                            if (OTrecs[i].retFloat == (float)g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
+                                        // Sufficient time has passed
+#ifdef TRACE
+                                        printf("openThings_receive(): %ld + %d < %ld\n", g_OTdevices[OTdi].thermostat->telemetryDate, THERMOSTAT_AUTO_TELEMETRY_TIME, rxMsg.t);
+                                        printf("openThings_receive(): adding cached command for auto-reporting thermostat_mode=%d\n", g_OTdevices[OTdi].thermostat->mode);
+#endif
+                                        // ret = openThings_cmd(productId, iDeviceId, OTCP_SET_THERMOSTAT_MODE, g_OTdevices[OTdi].thermostat->mode, 1);
+                                        openThings_cache_cmd(productId, iDeviceId, OTCP_SET_THERMOSTAT_MODE, g_OTdevices[OTdi].thermostat->mode, 3);
                                     }
-                                    break;
-
-                                case OTCP_SET_THERMOSTAT_MODE:
-                                    // Check THERMOSTAT_MODE
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_THERMOSTAT_MODE)
-                                        {
-                                            if (OTrecs[i].retInt == g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_SWITCH_STATE:
-                                    // Check SWITCH_STATE
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_SWITCH_STATE)
-                                        {
-                                            if (OTrecs[i].retInt == g_OTdevices[OTdi].cache->data)
-                                            {
-                                                cmdProcessed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_REQUEST_VOLTAGE:
-                                    // Check BATTERY_LEVEL
-                                    for (i = 0; i < records; i++)
-                                    {
-                                        if (OTrecs[i].paramId == OTP_BATTERY_LEVEL)
-                                        {
-                                            cmdProcessed = true;
-                                            break;
-                                        }
-                                    }
-                                    break;
-
-                                case OTCP_REQUEST_DIAGNOSTICS:
-                                    // TODO - need example message to progress further
-                                    break;
                                 }
                             }
 
-                            if (cmdProcessed)
-                            {
-                                // Cached command processed succesfully, stop retrying Tx
-                                // TODO: add mutex
-                                g_OTdevices[OTdi].cache->command = 0;
-                                g_OTdevices[OTdi].cache->retries = 0;
-                                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
-                            }
+                            // return cached command status (even if retries is 0)
+                            sprintf(OTrecord, ",\"command\":%d,\"retries\":%d",
+                                    g_OTdevices[OTdi].cache->command,
+                                    g_OTdevices[OTdi].cache->retries);
+                            strcat(OTmsg, OTrecord);
                         }
                     }
 
                     // close record array
                     strcat(OTmsg, "}");
 
-                    TRACE_OUTS("openThings_receive: Returning: ");
+                    TRACE_OUTS("openThings_receive(): Returning: ");
                     TRACE_OUTS(OTmsg);
                     TRACE_NL();
 
@@ -1303,17 +1230,17 @@ int openThings_receive(char *OTmsg, unsigned int buflen, unsigned int timeout)
                 else
                 {
                     // Message read from the buffer was not a valid OpenThings message, loop immediately to get the next msg from buffer
-                    TRACE_OUTS("Non-OT message, openThings_decode() returned ");
+                    TRACE_OUTS("openThings_receive(): Non-OT message, openThings_decode() returned ");
                     TRACE_OUTN(records);
                     TRACE_NL();
                 }
-            }
+            }  // pop
             else
             {
                 // no messages remaining in the buffer
-                //bufferEmpty = true;
+                // bufferEmpty = true;
             }
-        } while (msgsInRxBuf > 0); // loop until the RxMsg buffer is empty
+        } while (msgsInRxBuf > 0); // loop until the RxMsg buffer is empty - NOTE return quits loops early above anyways
 
         if (timeout > 0)
         {
@@ -1409,7 +1336,7 @@ void openthings_scan(int iTimeOut)
     unsigned char mfrId, productId;
     unsigned int iDeviceId;
     int records, i, j;
-    //char OTrecord[100];
+    // char OTrecord[100];
     struct RADIO_MSG rxMsg;
     bool joined = false;
 
@@ -1462,7 +1389,6 @@ void openthings_scan(int iTimeOut)
                         TRACE_NL();
                         openThings_joinACK(productId, iDeviceId, 20);
                         joined = true;
-
                     }
                 }
                 // Add devices to standard deviceList
@@ -1496,7 +1422,7 @@ int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigne
     unsigned short crc;
     unsigned char radio_msg[OTA_MSGLEN] = {OTA_MSGLEN - 1, ENERGENIE_MFRID, PRODUCTID_MIHO005, OT_DEFAULT_PIP, OT_DEFAULT_DEVICEID, OTC_JOIN_ACK, 0x00, 0x00};
 
-    //printf("openThings_joinACK(): productId=%d, deviceId=%d\n", iProductId, iDeviceId);
+    // printf("openThings_joinACK(): productId=%d, deviceId=%d\n", iProductId, iDeviceId);
 
     /*
     ** Stage 1: Build the message to send
@@ -1505,15 +1431,15 @@ int openThings_joinACK(unsigned char iProductId, unsigned int iDeviceId, unsigne
     // TODO: remove this, and use build_msg instead
 
     /* Stage 1a: OpenThings HEADER
-    */
+     */
     radio_msg[OTH_INDEX_PRODUCTID] = iProductId;
     // deviceId
-    radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    //MSB
-    radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; //MID
-    radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        //LSB
+    radio_msg[OTH_INDEX_DEVICEID] = (iDeviceId >> 16) & 0xFF;    // MSB
+    radio_msg[OTH_INDEX_DEVICEID + 1] = (iDeviceId >> 8) & 0xFF; // MID
+    radio_msg[OTH_INDEX_DEVICEID + 2] = iDeviceId & 0xFF;        // LSB
 
     /*
-    ** Stage 1b: OpenThings RECORDS (Commands) - Not required, as ACK record is always the same 
+    ** Stage 1b: OpenThings RECORDS (Commands) - Not required, as ACK record is always the same
     */
 
     /*
@@ -1580,11 +1506,13 @@ void openThings_cache_send(unsigned char index)
         msglen = g_OTdevices[index].cache->radio_msg[0] + 1; // msglen in radio message doesn't include the length byte :)
         if (msglen > 1)
         {
-            TRACE_OUTS("openThings_cache_send(): sending cached msg\n");
             // we have a cached command, send it
             if ((lock_ener314rt()) == 0)
             {
-                radio_mod_transmit(RADIO_MODULATION_FSK, g_OTdevices[index].cache->radio_msg, msglen, 1); //TODO make xmits configurable
+                radio_mod_transmit(RADIO_MODULATION_FSK, g_OTdevices[index].cache->radio_msg, msglen, 1); // TODO make xmits configurable
+#ifdef TRACE
+            printf("openThings_cache_send(): sent cached cmd %d:%g for device %d\n",g_OTdevices[index].cache->command,g_OTdevices[index].cache->data,g_OTdevices[index].deviceId);
+#endif
 
                 // Check if PreCached and swap over globals (within lock)
                 if (g_PreCachedCmds > 0 && !g_OTdevices[index].cache->active)
@@ -1599,22 +1527,17 @@ void openThings_cache_send(unsigned char index)
                 g_OTdevices[index].cache->retries--;
 
                 // If we have reached 0 retries, decrement cachedCmd count and reset the command too
-                if (g_OTdevices[index].cache->retries == 0 ){
+                if (g_OTdevices[index].cache->retries == 0)
+                {
                     _update_cachedcmd_count(-1, g_OTdevices[index].cache->active);
                     g_OTdevices[index].cache->command = 0;
                 }
-
 
 #if defined(TRACE)
                 printf("openThings_cache_send(): g_CachedCmds=%d, g_PreCachedCmds=%d, deviceId=%d, retries=%d\n", g_CachedCmds, g_PreCachedCmds, g_OTdevices[index].deviceId, g_OTdevices[index].cache->retries);
 #endif
             }
         }
-    }
-    else
-    {
-        // No outstanding cached commands
-        // TO-DO periodic auto-reporting
     }
 }
 
@@ -1652,7 +1575,8 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                 // TODO: add mutex
                 g_OTdevices[OTdi].cache->command = 0;
                 g_OTdevices[OTdi].cache->retries = 0;
-                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);            }
+                _update_cachedcmd_count(-1, g_OTdevices[OTdi].cache->active);
+            }
             break;
         case OTP_DIAGNOSTICS:
             trvData->diagnostics = OTrec.retInt;
@@ -1717,6 +1641,8 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                 { // Valve may be sticking
                     trvData->valve = ERROR;
                     trvData->errors = true;
+                    strncat(trvData->errString, "Valve may be sticking.", MAX_ERRSTR);
+
                 }
                 if (OTrec.retInt & 0x0200)
                 { // EXERCISE_VALVE success
@@ -1728,6 +1654,8 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                     trvData->exerciseValve = false;
                     trvData->valveDate = updateTime;
                     trvData->errors = true;
+                    strncat(trvData->errString, "Exercise Valve failed.", MAX_ERRSTR);
+
                 }
                 if (OTrec.retInt & 0x0800)
                 { // Driver micro has suffered a watchdog reset and needs data refresh
@@ -1746,11 +1674,11 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                 }
                 if (OTrec.retInt & 0x4000)
                 { // Request for heat messaging is enabled - not sure what to do here, or even how to set this!
-                    //trvData->
+                  // trvData->
                 }
                 if (OTrec.retInt & 0x8000)
                 { // Request for heat  - not sure what to do here
-                    //trvData->
+                  // trvData->
                 }
             }
             else
@@ -1759,7 +1687,9 @@ void eTRV_update(int OTdi, struct OTrecord OTrec, time_t updateTime)
                 trvData->lowPowerMode = false;
             }
         }
-    } else {
+    }
+    else
+    {
         TRACE_FAIL("eTRV_update(): ERROR: cache or trv structure undefined\n");
     }
 }
@@ -1815,70 +1745,242 @@ void eTRV_get_status(int OTdi, char *buf, unsigned int buflen)
         }
         if (trvData->diagnosticDate > 0)
         {
-            sprintf(trvStatus, ",\"DIAGNOSTICS\":%d,\"DIAGNOSTICS_TS\":%d,\"LOW_POWER_MODE\":%s",
+            sprintf(trvStatus, ",\"DIAGNOSTICS\":%d,\"DIAGNOSTICS_TS\":%d,\"LOW_POWER_MODE\":%s,\"ERRORS\":%s,\"ERROR_TEXT\":\"%s\"",
                     trvData->diagnostics,
                     (int)trvData->diagnosticDate,
-                    trvData->lowPowerMode ? "true" : "false");
-            strncat(buf, trvStatus, buflen);
-        }
-        if (trvData->errors)
-        {
-            sprintf(trvStatus, ",\"ERRORS\":%s,\"ERROR_TEXT\":\"%s\"",
+                    trvData->lowPowerMode ? "true" : "false",
                     trvData->errors ? "true" : "false",
                     trvData->errString);
             strncat(buf, trvStatus, buflen);
         }
-    } else {
+    }
+    else
+    {
         TRACE_FAIL("eTRV_get_status(): ERROR: trv structure is undefined\n");
     }
 }
 
 // private function that operates under a mutex to update the globals to cached/pre-cached commands
-void _update_cachedcmd_count( int delta, bool isCached){
+void _update_cachedcmd_count(int delta, bool isCached)
+{
 
-    #ifdef TRACE
-        TRACE_OUTS("_update_cachedcmd_count(");
-        TRACE_OUTN(delta);
-        TRACE_OUTC(',');
-        TRACE_OUTN(isCached);
-        TRACE_OUTS(") has set cached=");
-    #endif
+#ifdef TRACE
+    TRACE_OUTS("_update_cachedcmd_count(");
+    TRACE_OUTN(delta);
+    TRACE_OUTC(',');
+    TRACE_OUTN(isCached);
+    TRACE_OUTS(") has set cached=");
+#endif
 
     // lock mutex
-    if ((pthread_mutex_lock(&cachedcount_mutex)) == 0){
+    if ((pthread_mutex_lock(&cachedcount_mutex)) == 0)
+    {
         // update cached or precached command count
-        if (isCached){
+        if (isCached)
+        {
             // cached
-            if (delta>0){
+            if (delta > 0)
+            {
                 // inc
                 g_CachedCmds++;
-            } else {
+            }
+            else
+            {
                 // dec
                 if (g_CachedCmds > 0)
                     g_CachedCmds--;
             }
-        } else {
+        }
+        else
+        {
             // preCached
-            if (delta>0){
+            if (delta > 0)
+            {
                 // inc
                 g_PreCachedCmds++;
-            } else {
+            }
+            else
+            {
                 // dec
                 if (g_PreCachedCmds > 0)
                     g_PreCachedCmds--;
             }
         }
-    
+
         // unlock mutex
         pthread_mutex_unlock(&cachedcount_mutex);
 
-        #ifdef TRACE
-            TRACE_OUTN(g_CachedCmds);
-            TRACE_OUTS(", pre-cached=");
-            TRACE_OUTN(g_PreCachedCmds);
-            TRACE_NL();
-        #endif
-    } else {
+#ifdef TRACE
+        TRACE_OUTN(g_CachedCmds);
+        TRACE_OUTS(", pre-cached=");
+        TRACE_OUTN(g_PreCachedCmds);
+        TRACE_NL();
+#endif
+    }
+    else
+    {
         printf("_update_cachedcmd_count(): Failed to obtain lock ret=%d\n", errno);
     }
+}
+
+/*
+** _openThings_build_record()
+** ===================
+** Creates a single OpenThings command record for sending to an FSK OpenThings based device.
+** The full message (header, crc etc) is not built here
+**
+** SUPPORTED Commands (x) - e=MIHO013=eTRV, t=MIHO069=thermostat, s=MIHO005=Adapter+
+** -Param-----------------------Value--Test-Description
+**  OTCP_EXERCISE_VALVE         A3 163 e   Send exercise valve command to TRV
+**  OTCP_SET_LOW_POWER_MODE     A4 164 ?   Set TRV 0=Low power mode off, 1=Low power mode on
+**  OTCP_SET_VALVE_STATE        A5 165 e   Set TRV valve state (0,1,2)
+**  OTCP_REQUEST_DIAGNOSTICS    A6 166 e   Request diagnostic flags
+**  OTCP_SET_THERMOSTAT_MODE    AA 170 t?   Set mode of Room Thermostat (0,1,2)
+**  OTCP_RELAY_POLARITY         AB 171 t   Set relay polarity (of thermostat) (0,1)
+**  OTCP_HUMID_OFFSET           BA 186 t   Humidity calibration (of thermostat)
+**  OTCP_TEMP_OFFSET            BD 189 t   Temperature calibration (of thermostat)
+**  OTCP_IDENTIFY               BF 191 e   Ask device to perform it's identification routine
+**  OTCP_SET_REPORTING_INTERVAL D2 210    Update reporting interval to requested value (dont use on thermostat until issue resolved)
+**  OTCP_REQUEST_VOLTAGE        E2 226 e   Request battery voltage
+**  OTCP_SWITCH_STATE           F3 243    Set status of switched device
+**  OTCP_TARGET_TEMP            F4 244 t   Send new target temperature
+**  OTCP_HYSTERESIS             FE 254 t   aka Temp Margin, the difference between the current temperature and target temperature before the (thermostat) triggers
+**  UNKNOWN                     else  ---- All other commands - returns failure
+**
+** Parameters:
+**  iCommand - the OpenThings command
+**  fData    - float data value for the command
+**  sRecord  - Pre-allocated buffer used to store the encoded record
+**  (return) - Length of built record (-ve if failure)
+*/
+int _openThings_build_record(unsigned char iCommand, float fData, unsigned char *sRecord)
+{
+    int reclen = 0;
+    unsigned char iType = 0x00;
+    int iData;
+
+#define NO_DATA 0xFF
+
+    /* Assign data type based upon OpenThings parameter */
+    switch (iCommand)
+    {
+    case OTCP_SET_LOW_POWER_MODE:
+    case OTCP_SWITCH_STATE:
+    case OTCP_SET_VALVE_STATE:
+    case OTCP_SET_THERMOSTAT_MODE:
+    case OTCP_RELAY_POLARITY: // Thermostat RELAY_POLARITY
+        iType = 0x01;
+        break;
+
+    case OTCP_TARGET_TEMP:
+    case OTCP_TEMP_OFFSET: // Thermostat TEMPERATURE_OFFSET
+        iType = 0x92; // bit weird, but it works
+        break;
+
+    case OTCP_REQUEST_DIAGNOSTICS:
+    case OTCP_EXERCISE_VALVE:
+    case OTCP_REQUEST_VOLTAGE:
+    case OTCP_IDENTIFY:
+        iType = NO_DATA;
+        break;
+    
+    case OTCP_SET_REPORTING_INTERVAL:
+//        iType = 0x04;       // Thermostat - but doesn't work properly
+        iType = 0x02;      // eTRV
+        break;
+
+    case OTCP_HYSTERESIS: // Thermostat HYSTERESIS
+        iType = 0x11;
+        break;
+
+    case OTCP_HUMID_OFFSET: // Thermostat HUMIDITY_OFFSET
+        iType = 0x81;
+        break;
+
+    case 0xCB: // Thermostat SET_TARGET_TEMPERATURE (energenie email Jan 24 - doesn't seem to work)
+        iType = 0x12;
+        break;
+
+    default:
+        iType = 0;
+        // unknown command, exit
+#if defined(TRACE)
+        printf("_openThings_build_record(): UNKNOWN command=%d\n", iCommand);
+#endif
+    }
+
+#ifdef TRACE
+    printf("_openThings_build_record(): cmd=0x%02x(%d), data=%g, type=%d\n", iCommand, iCommand, fData, iType);
+#endif
+
+    /*
+    ** Build OpenThings RECORD (Commands)
+    */
+    if (iType > 0)
+    {
+        // command & data type
+        sRecord[0] = iCommand;
+        sRecord[1] = iType;
+
+        // populate data value(s) dependent upon datatype set by command above, using passed in float fData
+        switch (iType)
+        {
+        case NO_DATA:
+            reclen = 2;
+            sRecord[1] = 0;     // No type for no data
+            // no data required
+            break;
+        case 0x01:  // Unsigned int
+        case 0x81:  // Signed int
+            reclen = 3;
+            iData = (int)fData;
+            sRecord[2] = iData & 0xFF;
+            break;
+        case 0x02:
+            reclen = 4;
+            iData = (int)fData;
+            sRecord[2] = (iData >> 8) & 0xFF;
+            sRecord[3] = iData & 0xFF;
+            break;            
+        case 0x04:      // Int 4 bytes  - tests reclen=4=reply,reclen=5=ignore,reclen=6=ignore
+            reclen = 6;
+            long long int lData = (long long int)fData;
+            sRecord[5] = lData & 0xFF;
+            sRecord[4] = (lData >> 8) & 0xFF;
+            sRecord[3] = (lData >> 16) & 0xFF;
+            sRecord[2] = (lData >> 24) & 0xFF;
+            break;            
+        case 0x11:  // e.g. Hysteresis
+            reclen = 3;
+            iData = (int)fData * 16;
+            sRecord[2] = iData & 0xFF;
+            break;    
+        case 0x12:
+            reclen = 4;
+            fData = fData * (float)256.0;
+            iData = (int)fData;
+            sRecord[2] = (iData >> 8) & 0xFF;
+            sRecord[3] = iData & 0xFF;
+            break;
+        case 0x92:
+            reclen = 4;
+            fData = fData * (float)256.0;  // float value multiplied by 256 and sent as 2 bytes; so that fractional part becomes the 2nd byte
+            iData = (int)fData;
+            sRecord[2] = (iData >> 8) & 0xFF;
+            sRecord[3] = iData & 0xFF;
+            break;
+        }
+
+#if defined(TRACE)
+        printf("_openThings_build_record(): Built record (unencrypted) len=%d: ", reclen);
+        for (int i = 0; i < reclen; i++)
+        {
+            TRACE_OUTN(sRecord[i]);
+            TRACE_OUTC(',');
+        }
+        TRACE_NL();
+#endif
+    }
+
+    return reclen;
 }

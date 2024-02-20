@@ -36,6 +36,7 @@
 #include "gpio.h"
 #include "hrfm69.h"
 #include "trace.h"
+#include "../achronite/leds.h"
 
 /***** CONFIGURATION *****/
 
@@ -50,10 +51,10 @@
 #define RADIO_VAL_PACKETCONFIG1FSKNO 0xA0 // Variable length, Manchester coding
 
 /* GPIO assignments for Raspberry Pi using BCM numbering */
-#define RESET 25
+//#define RESET 25
 // GREEN used for RX, RED used for TX
-#define LED_RX 27 // (not B rev1)
-#define LED_TX 22
+//#define LED_RX 27 // (not B rev1)
+//#define LED_TX 22
 
 /***** LOCAL FUNCTION PROTOTYPES *****/
 static void _change_mode(uint8_t mode);
@@ -63,6 +64,18 @@ static void _config(HRF_CONFIG_REC *config, uint8_t len);
 
 //----- ENERGENIE SPECIFIC CONFIGURATIONS --------------------------------------
 
+static HRF_CONFIG_REC config_Shared[] = {
+    {HRF_ADDR_AFCCTRL, HRF_VAL_AFCCTRLS},                   // standard AFC routine
+    {HRF_ADDR_LNA, HRF_VAL_LNA50},                          // 200ohms, gain by AGC loop -> 50ohms
+    {HRF_ADDR_BITRATEMSB, 0x1A},                       // bitrate:4800b/s
+    {HRF_ADDR_BITRATELSB, 0x0B},                       // bitrate:4800b/s
+    {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
+    {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
+    {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
+    {HRF_ADDR_FIFOTHRESH, 	HRF_VAL_FIFOTHRESH1}		// RE-ADD - Condition to start packet transmission: at least one byte in FIFO
+};
+#define CONFIG_SHARED_COUNT (sizeof(config_Shared) / sizeof(HRF_CONFIG_REC))
+
 static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_REGDATAMODUL, HRF_VAL_REGDATAMODUL_FSK},      // modulation scheme FSK
     {HRF_ADDR_FDEVMSB, HRF_VAL_FDEVMSB30},                  // frequency deviation 5kHz 0x0052 -> 30kHz 0x01EC
@@ -70,18 +83,13 @@ static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_FRMSB, HRF_VAL_FRMSB434},                     // carrier freq -> 434.3MHz 0x6C9333
     {HRF_ADDR_FRMID, HRF_VAL_FRMID434},                     // carrier freq -> 434.3MHz 0x6C9333
     {HRF_ADDR_FRLSB, HRF_VAL_FRLSB434},                     // carrier freq -> 434.3MHz 0x6C9333
-    {HRF_ADDR_AFCCTRL, HRF_VAL_AFCCTRLS},                   // standard AFC routine
-    {HRF_ADDR_LNA, HRF_VAL_LNA50},                          // 200ohms, gain by AGC loop -> 50ohms
     {HRF_ADDR_RXBW, HRF_VAL_RXBW60},                        // channel filter bandwidth 10kHz -> 60kHz  page:26
-    {HRF_ADDR_BITRATEMSB, 0x1A},                            // 4800b/s
-    {HRF_ADDR_BITRATELSB, 0x0B},                            // 4800b/s
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG2},             // Size of the Synch word = 2 (SyncSize + 1)
-    {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
-    {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
     //{HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
     {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSK}, // Variable length, Manchester coding, NodeAddress filtering
-    {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66},            // max Length in RX, not used in Tx
-    {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
+    {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66}            // max Length in RX, not used in Tx
+//    {HRF_ADDR_OPMODE, 		HRF_MODE_RECEIVER},			// RE-ADD - Operating mode to Receiver
+//    {HRF_ADDR_AUTOMODES, HRF_VAL_AUTORX},                // Added to try and speed things up by auto-switching modes in Rx
 };
 #define CONFIG_FSK_COUNT (sizeof(config_FSK) / sizeof(HRF_CONFIG_REC))
 
@@ -93,14 +101,12 @@ static HRF_CONFIG_REC config_OOK[] = {
     {HRF_ADDR_FRMID, HRF_VAL_FRMID433},                // carrier freq:433.92MHz 0x6C7AE1
     {HRF_ADDR_FRLSB, HRF_VAL_FRLSB433},                // carrier freq:433.92MHz 0x6C7AE1
     {HRF_ADDR_RXBW, HRF_VAL_RXBW120},                  // channel filter bandwidth:120kHz
-    {HRF_ADDR_BITRATEMSB, 0x1A},                       // bitrate:4800b/s
-    {HRF_ADDR_BITRATELSB, 0x0B},                       // bitrate:4800b/s
     {HRF_ADDR_PREAMBLELSB, 0},                         // preamble size LSB
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG0},        // Size of sync word (disabled)
     {HRF_ADDR_PACKETCONFIG1, 0x80},                    // Tx Variable length, no Manchester coding
     {HRF_ADDR_PAYLOADLEN, 0}                           // no payload length
-
 };
+
 #define CONFIG_OOK_COUNT (sizeof(config_OOK) / sizeof(HRF_CONFIG_REC))
 
 /***** MODULE STATE *****/
@@ -113,7 +119,7 @@ typedef struct
     RADIO_MODE mode;
 } RADIO_DATA;
 
-RADIO_DATA radio_data;
+RADIO_DATA radio_data = {RADIO_UNKNOWN,RADIO_UNKNOWN};
 
 /***** PRIVATE ***************************************************************/
 
@@ -122,6 +128,7 @@ RADIO_DATA radio_data;
 
 static void _config(HRF_CONFIG_REC *config, uint8_t count)
 {
+    _wait_ready();
     while (count-- != 0)
     {
         HRF_writereg(config->addr, config->value);
@@ -136,17 +143,21 @@ static void _change_mode(uint8_t mode)
 {
     HRF_writereg(HRF_ADDR_OPMODE, mode);
     _wait_ready();
-    gpio_low(LED_RX); // RX OFF
-    gpio_low(LED_TX); // TX OFF
+    //gpio_low(LED_RX); // RX OFF
+    //gpio_low(LED_TX); // TX OFF
 
     if (mode == HRF_MODE_TRANSMITTER)
     {
         _wait_txready();
-        gpio_high(LED_TX);  // TX ON
+        //gpio_high(LED_TX);  // TX ON
+        leds_Tx();
     }
     else if (mode == HRF_MODE_RECEIVER)
     {
-        gpio_high(LED_RX);  // RX ON
+        //gpio_high(LED_RX);  // RX ON
+        leds_Rx();
+    } else {
+        leds_standby();
     }
     radio_data.mode = mode;
 }
@@ -182,14 +193,7 @@ static void _wait_txready(void)
 void radio_reset(void)
 {
     // reset radio, flashing both LEDs to show reset
-    gpio_high(LED_RX);
-    gpio_high(LED_TX);
-    gpio_high(RESET);
-    delayms(150);
-    gpio_low(RESET);
-    delayus(10000);
-    gpio_low(LED_RX);
-    gpio_low(LED_TX);
+    leds_reset_board();
 }
 
 /*---------------------------------------------------------------------------*/
@@ -204,26 +208,25 @@ int radio_init(void)
 
     if (ret == 0)
     {
-        // setup board GPIO pins
-        gpio_setout(RESET);
-        gpio_low(RESET);                // initialise radio reset pin low
-        gpio_setout(LED_TX);
-        gpio_setout(LED_RX);
-
-        // reset radio adaptor
-        radio_reset();
-
-        TRACE_OUTS("radio_ver=");
-        uint8_t rv = radio_get_ver();
-        TRACE_OUTN(rv);
-        TRACE_NL();
-
-        if (rv != EXPECTED_RADIOVER)
-        {
-            TRACE_OUTS("warning:unexpected radio ver=");
+        ret = leds_reset_board();
+        if (ret == 0) {
+            TRACE_OUTS("radio_ver=");
+            uint8_t rv = radio_get_ver();
             TRACE_OUTN(rv);
             TRACE_NL();
-            return ERR_RADIO_MIN;
+
+            if (rv != EXPECTED_RADIOVER)
+            {
+                TRACE_OUTS("warning:unexpected radio ver=");
+                TRACE_OUTN(rv);
+                TRACE_NL();
+                return ERR_RADIO_MIN;
+            } else {
+                // Load shared registers
+                TRACE_OUTS("radio_init(): Loading Shared config\n");
+                _config(config_Shared,CONFIG_SHARED_COUNT);
+            }
+
         }
 
     } else {
@@ -411,6 +414,7 @@ void radio_send_payload(uint8_t *payload, uint8_t len, uint8_t times)
 bool radio_is_receive_waiting(void)
 {
     uint8_t irqflags2 = HRF_readreg(HRF_ADDR_IRQFLAGS2);
+
     return (irqflags2 & HRF_MASK_PAYLOADRDY) == HRF_MASK_PAYLOADRDY;
     /*
     if (_payload_waiting())
@@ -474,11 +478,12 @@ void radio_finished(void)
     TRACE_OUTS("radio_finished\n");
     //spi_finished();
     radio_standby();
-    gpio_finished();
+    leds_reset_board();
+    leds_close();
 
     // clear globals
-    radio_data.modu = 99;
-    radio_data.mode = 99;
+    radio_data.modu = RADIO_UNKNOWN;
+    radio_data.mode = RADIO_UNKNOWN;
 }
 
 /* @Achronite - March 2019, January 2020

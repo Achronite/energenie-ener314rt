@@ -98,7 +98,7 @@ int gpio_init()
 
    if (gpio_map == MAP_FAILED) 
    {
-      printf("ener314rt: mmap error %d\n", (int)gpio_map); //errno also set!
+      printf("ener314rt: mmap error MAP_FAILED\n"); //errno also set!
       return ERR_MMAP;
    }
 

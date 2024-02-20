@@ -78,10 +78,9 @@ int init_ener314rt(int lock)
                     TRACE_OUTS("init_ener314(): mutex created & locked\n");
                     if ((ret = radio_init()) == 0)
                     {
-                        // place radio in known modulation and mode - OOK:Standby
+                        // place radio in known modulation and mode - FSK:Standby
                         initialised = true;
-                        //radio_modulation(RADIO_MODULATION_OOK);
-                        radio_standby();
+                        radio_setmode(RADIO_MODULATION_FSK,HRF_MODE_STANDBY);
                     }
 
                     if (!lock)
@@ -174,10 +173,10 @@ void close_ener314rt(void)
 /*
 ** empty_radio_Rx_buffer() - empties the radio receive buffer of any messages into RxMsgs as quickly as possible
 **
-** Need to mutex lock before calling
+** Need to mutex lock before calling this function
 ** Leave the radio in receive mode if monitoring, as this could have been the first time we have been called
 **
-** returns the # of messages read, -1 if error getting lock
+** returns the # of messages read
 **
 ** TODO: Buffer is currently cyclic and destructive, we could lose messages, but I've made the assumption we always need
 **       the latest messages
@@ -217,7 +216,7 @@ int empty_radio_Rx_buffer(enum deviceTypes rxMode)
             }
             else
             {
-                TRACE_OUTS("radio_get_payload_XXX(): invalid OT payload\n");
+                TRACE_OUTS("empty_radio_Rx_buffer(): invalid OT payload\n");
                 break;
             }
         }
@@ -240,6 +239,9 @@ int pop_RxMsg(struct RADIO_MSG *rxMsg)
     if (pRxMsgHead != pRxMsgTail)
     {
         memcpy(rxMsg->msg, RxMsgs[pRxMsgTail].msg, sizeof(rxMsg->msg));
+
+        // null out read message
+        memset(RxMsgs[pRxMsgTail].msg, 0, MAX_FIFO_BUFFER);
         rxMsg->t = RxMsgs[pRxMsgTail].t;
 
         // move tail to next msg in buffer

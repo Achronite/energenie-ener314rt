@@ -4,7 +4,7 @@
 
 *
 
-## [0.7.1] 2024-01
+## [0.7.2] 2024-02-20
 
 ### Added
 
@@ -20,6 +20,7 @@
 * Submitting a cached command will now replace the exisiting cached command for the device
 * Fixed ookSwitch returning non-zero when records in buffer [#32](https://github.com/Achronite/energenie-ener314rt/issues/32)
 * Prevented cached commands being sent twice for Thermostat [#37](https://github.com/Achronite/energenie-ener314rt/issues/37)
+* Fixed initial load of parameters to adaptor not working after initialisation, which prevented OOK messages being sent correctly when monitoring disabled [#43](https://github.com/Achronite/energenie-ener314rt/issues/43)
  
 
 ### Changed

@@ -64,6 +64,18 @@ static void _config(HRF_CONFIG_REC *config, uint8_t len);
 
 //----- ENERGENIE SPECIFIC CONFIGURATIONS --------------------------------------
 
+static HRF_CONFIG_REC config_Shared[] = {
+    {HRF_ADDR_AFCCTRL, HRF_VAL_AFCCTRLS},                   // standard AFC routine
+    {HRF_ADDR_LNA, HRF_VAL_LNA50},                          // 200ohms, gain by AGC loop -> 50ohms
+    {HRF_ADDR_BITRATEMSB, 0x1A},                       // bitrate:4800b/s
+    {HRF_ADDR_BITRATELSB, 0x0B},                       // bitrate:4800b/s
+    {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
+    {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
+    {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
+    {HRF_ADDR_FIFOTHRESH, 	HRF_VAL_FIFOTHRESH1}		// RE-ADD - Condition to start packet transmission: at least one byte in FIFO
+};
+#define CONFIG_SHARED_COUNT (sizeof(config_Shared) / sizeof(HRF_CONFIG_REC))
+
 static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_REGDATAMODUL, HRF_VAL_REGDATAMODUL_FSK},      // modulation scheme FSK
     {HRF_ADDR_FDEVMSB, HRF_VAL_FDEVMSB30},                  // frequency deviation 5kHz 0x0052 -> 30kHz 0x01EC
@@ -71,21 +83,13 @@ static HRF_CONFIG_REC config_FSK[] = {
     {HRF_ADDR_FRMSB, HRF_VAL_FRMSB434},                     // carrier freq -> 434.3MHz 0x6C9333
     {HRF_ADDR_FRMID, HRF_VAL_FRMID434},                     // carrier freq -> 434.3MHz 0x6C9333
     {HRF_ADDR_FRLSB, HRF_VAL_FRLSB434},                     // carrier freq -> 434.3MHz 0x6C9333
-    {HRF_ADDR_AFCCTRL, HRF_VAL_AFCCTRLS},                   // standard AFC routine
-    {HRF_ADDR_LNA, HRF_VAL_LNA50},                          // 200ohms, gain by AGC loop -> 50ohms
     {HRF_ADDR_RXBW, HRF_VAL_RXBW60},                        // channel filter bandwidth 10kHz -> 60kHz  page:26
-    {HRF_ADDR_BITRATEMSB, 0x1A},                            // 4800b/s
-    {HRF_ADDR_BITRATELSB, 0x0B},                            // 4800b/s
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG2},             // Size of the Synch word = 2 (SyncSize + 1)
-    {HRF_ADDR_SYNCVALUE1, RADIO_VAL_SYNCVALUE1FSK},         // 1st byte of Sync word
-    {HRF_ADDR_SYNCVALUE2, RADIO_VAL_SYNCVALUE2FSK},         // 2nd byte of Sync word
     //{HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSKNO}, // Variable length, Manchester coding
     {HRF_ADDR_PACKETCONFIG1, RADIO_VAL_PACKETCONFIG1FSK}, // Variable length, Manchester coding, NodeAddress filtering
-    {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66},            // max Length in RX, not used in Tx
-    {HRF_ADDR_NODEADDRESS, 0x04},                           // Node address used in address filtering (not used) - PTG was 0x06 gpbenton uses 0x04
+    {HRF_ADDR_PAYLOADLEN, HRF_VAL_PAYLOADLEN66}            // max Length in RX, not used in Tx
 //    {HRF_ADDR_OPMODE, 		HRF_MODE_RECEIVER},			// RE-ADD - Operating mode to Receiver
 //    {HRF_ADDR_AUTOMODES, HRF_VAL_AUTORX},                // Added to try and speed things up by auto-switching modes in Rx
-    {HRF_ADDR_FIFOTHRESH, 	HRF_VAL_FIFOTHRESH1}		// RE-ADD - Condition to start packet transmission: at least one byte in FIFO
 };
 #define CONFIG_FSK_COUNT (sizeof(config_FSK) / sizeof(HRF_CONFIG_REC))
 
@@ -97,13 +101,12 @@ static HRF_CONFIG_REC config_OOK[] = {
     {HRF_ADDR_FRMID, HRF_VAL_FRMID433},                // carrier freq:433.92MHz 0x6C7AE1
     {HRF_ADDR_FRLSB, HRF_VAL_FRLSB433},                // carrier freq:433.92MHz 0x6C7AE1
     {HRF_ADDR_RXBW, HRF_VAL_RXBW120},                  // channel filter bandwidth:120kHz
-    {HRF_ADDR_BITRATEMSB, 0x1A},                       // bitrate:4800b/s
-    {HRF_ADDR_BITRATELSB, 0x0B},                       // bitrate:4800b/s
     {HRF_ADDR_PREAMBLELSB, 0},                         // preamble size LSB
     {HRF_ADDR_SYNCCONFIG, HRF_VAL_SYNCCONFIG0},        // Size of sync word (disabled)
     {HRF_ADDR_PACKETCONFIG1, 0x80},                    // Tx Variable length, no Manchester coding
     {HRF_ADDR_PAYLOADLEN, 0}                           // no payload length
 };
+
 #define CONFIG_OOK_COUNT (sizeof(config_OOK) / sizeof(HRF_CONFIG_REC))
 
 /***** MODULE STATE *****/
@@ -125,6 +128,7 @@ RADIO_DATA radio_data = {RADIO_UNKNOWN,RADIO_UNKNOWN};
 
 static void _config(HRF_CONFIG_REC *config, uint8_t count)
 {
+    _wait_ready();
     while (count-- != 0)
     {
         HRF_writereg(config->addr, config->value);
@@ -217,6 +221,10 @@ int radio_init(void)
                 TRACE_OUTN(rv);
                 TRACE_NL();
                 return ERR_RADIO_MIN;
+            } else {
+                // Load shared registers
+                TRACE_OUTS("radio_init(): Loading Shared config\n");
+                _config(config_Shared,CONFIG_SHARED_COUNT);
             }
 
         }
